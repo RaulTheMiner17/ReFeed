@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "413587677446",
+    "project_id": "refeed-a3932",
+    "storage_bucket": "refeed-a3932.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:413587677446:android:c243fba63716cf86febe87",
+        "android_client_info": {
+          "package_name": "com.ran.refeed"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvtcWNLUlkXhO6tNnW02Y-ksEspZAfebg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
