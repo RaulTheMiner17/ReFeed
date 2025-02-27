@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.ran.refeed"
-    compileSdk = 34 // Stick to 34 for now.
+    compileSdk = 35 // Stick to 34 for now.
 
     defaultConfig {
         applicationId = "com.ran.refeed"
@@ -65,6 +65,8 @@ android {
 }
 
 dependencies {
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.android.gms:play-services-maps:19.1.0")
     // Use a central place for versions (libs.versions.toml is BEST, but this works)
     val composeBomVersion = "2024.02.01" //  Latest *STABLE* BOM.  Check for updates!
     val lifecycleVersion = "2.7.0"
@@ -117,4 +119,10 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    implementation("com.google.maps.android:maps-compose:6.4.2") // Replace x.y.z!
+    implementation("com.google.android.gms:play-services-location:21.1.0")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+
 }

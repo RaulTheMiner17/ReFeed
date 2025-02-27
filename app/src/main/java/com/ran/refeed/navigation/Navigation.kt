@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import com.ran.refeed.ui.screens.HomeScreen  // Import HomeScreen
 import com.ran.refeed.ui.screens.LoginScreen
 import com.ran.refeed.ui.screens.RegisterScreen
+import com.ran.refeed.ui.screens.CategoriesScreen // Import CategoriesScreen
 import com.ran.refeed.viewmodels.AuthViewModel
 
 @Composable
@@ -23,7 +24,7 @@ fun ReFeedNavigation(navController: NavHostController) {
             LoginScreen(
                 onNavigateToRegister = { navController.navigate("register") },
                 onLoginSuccess = {
-                    navController.navigate("main") {
+                    navController.navigate("home") { // Navigate to "home" after login
                         popUpTo("login") { inclusive = true }
                     }
                 },
@@ -35,7 +36,7 @@ fun ReFeedNavigation(navController: NavHostController) {
             RegisterScreen(
                 onNavigateToLogin = { navController.navigate("login") },
                 onRegisterSuccess = {
-                    navController.navigate("main") {
+                    navController.navigate("home") { // Navigate to "home" after registration
                         popUpTo("register") { inclusive = true }
                     }
                 },
@@ -43,8 +44,12 @@ fun ReFeedNavigation(navController: NavHostController) {
             )
         }
 
-        composable("main") { // Now uncommented and includes HomeScreen
-            HomeScreen() // Assuming you have a HomeScreen
+        composable("home") { // Use "home" as the route
+            HomeScreen(navController = navController) // Pass the navController
+        }
+
+        composable("categories") { // Add the categories route
+            CategoriesScreen()
         }
     }
 }

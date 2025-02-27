@@ -34,15 +34,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.ran.refeed.R // Replace with your actual R file
 import com.ran.refeed.ui.theme.ReFeedTheme // Replace with your project's theme if you have one
 
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(navController: NavController) { // Add NavController
     Scaffold(
         bottomBar = {
-            BottomNavigationBar()
+            BottomNavigationBar(navController) // Pass NavController
         }
     ) { innerPadding ->
         DonationCentersList(innerPadding)
@@ -50,10 +52,10 @@ fun HomeScreen() {
 }
 
 @Composable
-fun BottomNavigationBar() {
+fun BottomNavigationBar(navController: NavController) { // Add NavController
     BottomAppBar(
-        containerColor = Color(0xFF4CAF50), // Set the background color to green
-        contentColor = Color.White, // Set the content color to white (or your desired color)
+        containerColor = Color(0xFF4CAF50),
+        contentColor = Color.White,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -63,7 +65,7 @@ fun BottomNavigationBar() {
             IconButton(onClick = { /* TODO: Navigate to Home */ }) {
                 Icon(Icons.Filled.Home, contentDescription = "Home")
             }
-            IconButton(onClick = { /* TODO: Navigate to Categories */ }) {
+            IconButton(onClick = { navController.navigate("categories") }) { // Navigate to categories
                 Icon(Icons.Outlined.Category, contentDescription = "Categories")
             }
             IconButton(onClick = { /* TODO: Navigate to Search */ }) {
@@ -79,9 +81,8 @@ fun BottomNavigationBar() {
 
 @Composable
 fun DonationCentersList(paddingValues: PaddingValues) {
-    // Dummy data for demonstration.  Replace with your actual data.
     val donationCenters = listOf(
-        DonationCenter("Center 1", R.drawable.center1), // Use a placeholder image, replace later.
+        DonationCenter("Center 1", R.drawable.center1),
         DonationCenter("Center 2", R.drawable.center2),
         DonationCenter("Center 3", R.drawable.center3),
 
@@ -116,22 +117,21 @@ fun DonationCenterItem(center: DonationCenter) {
         painter = painterResource(id = center.imageResId),
         contentDescription = "Donation Center Image",
         modifier = Modifier
-            .size(width = 200.dp, height = 150.dp) // Adjust size as needed
-            .clip(RoundedCornerShape(8.dp)), // Rounded corners for the image
-        contentScale = ContentScale.Crop // Crop the image to fill the bounds
+            .size(width = 200.dp, height = 150.dp)
+            .clip(RoundedCornerShape(8.dp)),
+        contentScale = ContentScale.Crop
     )
 }
 
-// Data class for the Donation Center (replace with your actual data structure)
 data class DonationCenter(val name: String, val imageResId: Int)
-
 
 
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
-    ReFeedTheme { // Use your project's theme
-        HomeScreen()
+    ReFeedTheme {
+        val navController = rememberNavController() // Use rememberNavController in previews
+        HomeScreen(navController)
     }
 }
 
@@ -139,7 +139,8 @@ fun HomeScreenPreview() {
 @Composable
 fun BottomNavigationBarPreview() {
     ReFeedTheme {
-        BottomNavigationBar()
+        val navController = rememberNavController()
+        BottomNavigationBar(navController)
     }
 }
 
