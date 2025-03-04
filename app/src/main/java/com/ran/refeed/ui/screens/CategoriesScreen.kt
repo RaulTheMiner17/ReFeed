@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,6 +15,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -280,7 +279,7 @@ fun BottomAppBarCategories() {
                 Icon(Icons.Filled.Home, contentDescription = "Home")
             }
             IconButton(onClick = { /* TODO: Navigate to Categories */ }) {
-                Icon(Icons.Outlined.Category, contentDescription = "Categories")
+                Icon(Icons.Outlined.LocationOn, contentDescription = "Categories")
             }
             IconButton(onClick = { /* TODO: Navigate to Search */ }) {
                 Icon(Icons.Filled.Search, contentDescription = "Search")

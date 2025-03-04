@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,7 +67,7 @@ fun BottomNavigationBar(navController: NavController) { // Add NavController
                 Icon(Icons.Filled.Home, contentDescription = "Home")
             }
             IconButton(onClick = { navController.navigate("categories") }) { // Navigate to categories
-                Icon(Icons.Outlined.Category, contentDescription = "Categories")
+                Icon(Icons.Outlined.LocationOn, contentDescription = "Categories")
             }
             IconButton(onClick = { /* TODO: Navigate to Search */ }) {
                 Icon(Icons.Filled.Search, contentDescription = "Search")
