@@ -11,11 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,12 +19,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.ran.refeed.ui.theme.ReFeedTheme
@@ -41,9 +41,9 @@ import org.osmdroid.views.overlay.Marker
 
 data class Restaurant(val name: String, val latLng: GeoPoint, val hasExcessFood: Boolean) // Use GeoPoint
 
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoriesScreen() {
+fun CategoriesScreen(navController: NavController) {
     val context = LocalContext.current
     var locationPermissionGranted by remember { mutableStateOf(false) }
     var currentLocation by remember { mutableStateOf<GeoPoint?>(null) } // Use GeoPoint
@@ -55,7 +55,6 @@ fun CategoriesScreen() {
     Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid", 0))
 
     val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-
 
     val restaurants = remember {
         listOf(
@@ -116,11 +115,6 @@ fun CategoriesScreen() {
                     }
                 }
             }
-            if (event == Lifecycle.Event.ON_PAUSE) { // onPause for osmdroid
-                // Handle map view lifecycle (important for osmdroid)
-                // mapView.onPause()  // We'll handle this in the AndroidView update callback
-
-            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
 
@@ -153,8 +147,15 @@ fun CategoriesScreen() {
     }
 
     Scaffold(
-        bottomBar = {
-            BottomAppBarCategories()
+        topBar = {
+            TopAppBar(
+                title = { Text("Donation Centers") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF4CAF50),
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
+            )
         }
     ) { innerPadding ->
         Box(modifier = Modifier
@@ -165,17 +166,22 @@ fun CategoriesScreen() {
                 OSMMapView(
                     modifier = Modifier.fillMaxSize(),
                     currentLocation = currentLocation,
-                    restaurants = restaurants
+                    restaurants = restaurants,
+                    onMarkerClick = { restaurant ->
+                        // Navigate to donation center detail
+                        navController.navigate("donationCenter/${restaurant.name}")
+                    }
                 )
 
             } else if (showRationale) {
                 // Rationale
                 AlertDialog(
-                    onDismissRequest = { showRationale = false
+                    onDismissRequest = {
+                        showRationale = false
                         requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                     },
                     title = { Text("Location Permission Needed") },
-                    text = { Text("We need your location to show nearby restaurants.") },
+                    text = { Text("We need your location to show nearby donation centers.") },
                     confirmButton = {
                         Button(onClick = {
                             showRationale = false
@@ -214,7 +220,28 @@ fun CategoriesScreen() {
                     }
                 )
             } else {
-                Text("Location permission not granted")
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        "Location permission required",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50)
+                        )
+                    ) {
+                        Text("Grant Permission")
+                    }
+                }
             }
         }
     }
@@ -225,7 +252,8 @@ fun CategoriesScreen() {
 fun OSMMapView(
     modifier: Modifier = Modifier,
     currentLocation: GeoPoint?,
-    restaurants: List<Restaurant>
+    restaurants: List<Restaurant>,
+    onMarkerClick: (Restaurant) -> Unit
 ) {
     val context = LocalContext.current
     val mapView = remember { MapView(context) }  // Use remember for the MapView
@@ -233,11 +261,14 @@ fun OSMMapView(
     AndroidView(
         factory = { mapView },
         modifier = modifier,
-        update = {
-                mapView ->
+        update = { mapView ->
             mapView.setTileSource(TileSourceFactory.MAPNIK) // Or other tile sources
             mapView.controller.setZoom(15.0)  // Initial zoom level
             mapView.setMultiTouchControls(true)
+
+            // Clear existing overlays to prevent duplicates
+            mapView.overlays.clear()
+
             currentLocation?.let {
                 mapView.controller.animateTo(it) // Center on current location
                 val locationMarker = Marker(mapView)
@@ -245,8 +276,8 @@ fun OSMMapView(
                 locationMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 locationMarker.title = "Your Location"
                 mapView.overlays.add(locationMarker)
-
             }
+
             // Add restaurant markers
             for (restaurant in restaurants) {
                 if (restaurant.hasExcessFood) {
@@ -255,40 +286,20 @@ fun OSMMapView(
                     marker.title = restaurant.name
                     marker.snippet = "Has excess food" // Optional snippet
                     marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) // Center the marker
+
+                    // Set marker click listener
+                    marker.setOnMarkerClickListener { marker, mapView ->
+                        onMarkerClick(restaurant)
+                        true // Return true to consume the event
+                    }
+
                     mapView.overlays.add(marker)
                 }
             }
+
             mapView.onResume()
         }
-
     )
-}
-
-@Composable
-fun BottomAppBarCategories() {
-    BottomAppBar(
-        containerColor = Color(0xFF4CAF50),
-        contentColor = Color.White
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { /* TODO: Navigate to Home */ }) {
-                Icon(Icons.Filled.Home, contentDescription = "Home")
-            }
-            IconButton(onClick = { /* TODO: Navigate to Categories */ }) {
-                Icon(Icons.Outlined.LocationOn, contentDescription = "Categories")
-            }
-            IconButton(onClick = { /* TODO: Navigate to Search */ }) {
-                Icon(Icons.Filled.Search, contentDescription = "Search")
-            }
-            IconButton(onClick = { /* TODO: Navigate to Profile */ }) {
-                Icon(Icons.Filled.AccountCircle, contentDescription = "Profile")
-            }
-        }
-    }
 }
 
 @SuppressLint("MissingPermission")
@@ -311,13 +322,6 @@ private fun getLastLocation(
 @Composable
 fun CategoriesScreenPreview() {
     ReFeedTheme {
-        CategoriesScreen()
-    }
-}
-@Preview
-@Composable
-fun CategoriesBottomNavPreview(){
-    ReFeedTheme {
-        BottomAppBarCategories()
+        CategoriesScreen(rememberNavController())
     }
 }

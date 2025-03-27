@@ -1,227 +1,208 @@
 package com.ran.refeed.ui.screens
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.Card
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import com.ran.refeed.R
-import com.ran.refeed.ui.theme.ReFeedTheme
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.ran.refeed.data.model.Shelter
+import com.ran.refeed.viewmodels.ShelterViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DonationCenterDetailScreen(navController: NavController, centerId: Int) {
-    // In a real app, you would fetch the center details based on the centerId
-    // For this example, we'll create a mock center
-    val center = when (centerId) {
-        1 -> DonationCenter(1, "Center 1", R.drawable.center1, "123 Main St",
-            "A center dedicated to helping those in need. We collect food donations from individuals and businesses to distribute to people experiencing food insecurity in our community. Our mission is to ensure no one goes hungry.", "9 AM - 5 PM")
-        2 -> DonationCenter(2, "Center 2", R.drawable.center2, "456 Oak Ave",
-            "Community-focused donation center for all. We believe in the power of community support and work to connect those with resources to those in need. We accept all types of food donations and ensure they reach those who need them most.", "8 AM - 6 PM")
-        3 -> DonationCenter(3, "Center 3", R.drawable.center3, "789 Pine Rd",
-            "Providing support to local communities. Our center focuses on local needs and works closely with neighborhood organizations to identify and address food insecurity. We welcome volunteers and donations of all kinds.", "10 AM - 4 PM")
-        else -> DonationCenter(1, "Center 1", R.drawable.center1, "123 Main St",
-            "A center dedicated to helping those in need", "9 AM - 5 PM")
+fun DonationCenterDetailScreen(
+    navController: NavController,
+    centerId: String,
+    shelterViewModel: ShelterViewModel = viewModel()
+) {
+    val shelter by shelterViewModel.shelter.collectAsState()
+    val isLoading by shelterViewModel.isLoading.collectAsState()
+
+    LaunchedEffect(centerId) {
+        shelterViewModel.fetchShelter(centerId)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Donation Center") },
+                title = { Text("Shelter Details") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF4CAF50),
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
+                }
             )
         }
-    ) { innerPadding ->
-        Column(            modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+    ) { paddingValues ->
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
             ) {
-                Image(
-                    painter = painterResource(id = center.imageResId),
-                    contentDescription = "Donation Center Image",
+                CircularProgressIndicator(color = Color(0xFF4CAF50))
+            }
+        } else if (shelter != null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Shelter Image
+                if (shelter?.imageUrl?.isNotEmpty() == true) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(shelter?.imageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = shelter?.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(250.dp)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(250.dp)
+                            .background(Color.LightGray),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.LocationOn,
+                            contentDescription = "Shelter",
+                            tint = Color.White,
+                            modifier = Modifier.size(64.dp)
+                        )
+                    }
+                }
+
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp),
-                    contentScale = ContentScale.Crop
-                )
-            }
+                        .padding(16.dp)
+                ) {
+                    // Shelter Name
+                    Text(
+                        text = shelter?.name ?: "",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = center.name,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Address section
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Shelter Address
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = "Location",
-                            tint = Color(0xFF4CAF50)
+                            imageVector = Icons.Outlined.LocationOn,
+                            contentDescription = "Address",
+                            tint = Color.Gray
                         )
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
                         Text(
-                            text = "Address",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 8.dp)
+                            text = shelter?.address ?: "",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Gray
                         )
                     }
 
-                    Text(
-                        text = center.address,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(start = 32.dp, top = 4.dp)
-                    )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    Divider(modifier = Modifier.padding(vertical = 12.dp))
-
-                    // Hours section
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = "Hours",
-                            tint = Color(0xFF4CAF50)
-                        )
-                        Text(
-                            text = "Hours",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-
-                    Text(
-                        text = center.hours,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(start = 32.dp, top = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                    // Description
                     Text(
                         text = "About",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = center.description,
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Justify
+                        text = shelter?.description ?: "",
+                        style = MaterialTheme.typography.bodyLarge
                     )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Contact Information
+                    Text(
+                        text = "Contact Information",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "Phone",
+                            tint = Color.Gray
+                        )
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        Text(
+                            text = shelter?.contact ?: "No contact information available",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Donate Button
+                    Button(
+                        onClick = { /* TODO: Implement donation flow */ },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Favorite, contentDescription = "Donate")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Donate to this Shelter")
+                    }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
+        } else {
+            // Shelter not found
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "How to Donate",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "You can donate food items by visiting our center during operating hours. We accept non-perishable food items, fresh produce, and prepared meals that meet our safety guidelines.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Justify
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Items we need most:",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Text(
-                        text = "• Canned goods\n• Rice and pasta\n• Cooking oils\n• Fresh fruits and vegetables\n• Bread and baked goods",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                    )
-                }
+                Text(
+                    text = "Shelter not found",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Gray
+                )
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DonationCenterDetailScreenPreview() {
-    ReFeedTheme {
-        DonationCenterDetailScreen(rememberNavController(), 1)
     }
 }
