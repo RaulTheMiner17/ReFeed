@@ -42,6 +42,11 @@ fun AddFoodDonationScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val isSuccess by viewModel.isSuccess.collectAsState()
 
+    // Initialize Appwrite on first composition
+    LaunchedEffect(Unit) {
+        viewModel.initAppwrite(context)
+    }
+
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
@@ -221,6 +226,7 @@ fun AddFoodDonationScreen(
                 Button(
                     onClick = {
                         viewModel.addFoodDonation(
+                            context = context,
                             name = name,
                             description = description,
                             quantity = quantity,
@@ -290,3 +296,4 @@ fun AddFoodDonationScreen(
         }
     }
 }
+

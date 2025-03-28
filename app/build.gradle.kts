@@ -129,6 +129,6 @@ dependencies {
     implementation("androidx.compose.animation:animation:1.5.0")
     // If you want to use Material Motion
     implementation("com.google.accompanist:accompanist-navigation-animation:0.30.1")
-
+    implementation("io.appwrite:sdk-for-android:6.1.0")
 
 }

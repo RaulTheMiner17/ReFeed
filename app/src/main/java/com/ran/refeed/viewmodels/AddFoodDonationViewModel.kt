@@ -1,21 +1,31 @@
 package com.ran.refeed.viewmodels
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
+import io.appwrite.Client
+import io.appwrite.ID
+import io.appwrite.models.InputFile
+import io.appwrite.services.Storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.io.File
+import java.io.FileOutputStream
 import java.util.UUID
 
 class AddFoodDonationViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
-    private val storage = FirebaseStorage.getInstance()
+
+    // Appwrite configuration
+    private val appwriteProjectId = "67e68003002cba2842ba"
+    private lateinit var appwriteClient: Client
+    private lateinit var appwriteStorage: Storage
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -23,7 +33,17 @@ class AddFoodDonationViewModel : ViewModel() {
     private val _isSuccess = MutableStateFlow(false)
     val isSuccess: StateFlow<Boolean> = _isSuccess
 
+    // Initialize Appwrite client
+    fun initAppwrite(context: Context) {
+        appwriteClient = Client(context)
+            .setEndpoint("https://cloud.appwrite.io/v1")
+            .setProject(appwriteProjectId)
+
+        appwriteStorage = Storage(appwriteClient)
+    }
+
     fun addFoodDonation(
+        context: Context,
         name: String,
         description: String,
         quantity: String,
@@ -32,6 +52,11 @@ class AddFoodDonationViewModel : ViewModel() {
         expiryDate: Long,
         imageUri: Uri?
     ) {
+        // Initialize Appwrite if not already initialized
+        if (!::appwriteClient.isInitialized) {
+            initAppwrite(context)
+        }
+
         viewModelScope.launch {
             try {
                 _isLoading.value = true
@@ -65,7 +90,7 @@ class AddFoodDonationViewModel : ViewModel() {
                 // Upload image if available
                 var imageUrl = ""
                 if (imageUri != null) {
-                    imageUrl = uploadImage(imageUri)
+                    imageUrl = uploadImageToAppwrite(context, imageUri)
                 }
 
                 // Create food item document
@@ -108,21 +133,44 @@ class AddFoodDonationViewModel : ViewModel() {
         }
     }
 
-    private suspend fun uploadImage(imageUri: Uri): String {
-        val storageRef = storage.reference
-        val imageFileName = "food_images/${UUID.randomUUID()}.jpg"
-        val imageRef = storageRef.child(imageFileName)
+    private suspend fun uploadImageToAppwrite(context: Context, imageUri: Uri): String {
+        try {
+            // Create a temporary file from the URI
+            val inputStream = context.contentResolver.openInputStream(imageUri)
+            val tempFile = File.createTempFile("upload", ".jpg", context.cacheDir)
+            val outputStream = FileOutputStream(tempFile)
 
-        return try {
-            // Upload the file and wait for completion
-            imageRef.putFile(imageUri).await()
+            inputStream?.use { input ->
+                outputStream.use { output ->
+                    input.copyTo(output)
+                }
+            }
 
-            // Get and return the download URL - this is the key step
-            val downloadUrl = imageRef.downloadUrl.await()
-            downloadUrl.toString()
+            // Create a bucket ID if you don't have one already
+            // For this example, we'll use a predefined bucket ID
+            val bucketId = "foodImages" // You should create this bucket in Appwrite console
+
+            // Generate a unique file ID
+            val fileId = ID.unique()
+
+            // Create an InputFile from the temp file
+            val inputFile = InputFile.fromFile(tempFile)
+
+            // Upload the file to Appwrite Storage
+            val result = appwriteStorage.createFile(
+                bucketId = bucketId,
+                fileId = fileId,
+                file = inputFile
+            )
+
+            // Clean up the temporary file
+            tempFile.delete()
+
+            // Return the URL to the uploaded file
+            return "https://cloud.appwrite.io/v1/storage/buckets/$bucketId/files/$fileId/view?project=$appwriteProjectId"
         } catch (e: Exception) {
             e.printStackTrace()
-            ""
+            return ""
         }
     }
 }
