@@ -47,8 +47,8 @@ fun BottomNavigationBar(
                 selectedIconColor = greenColor,
                 selectedTextColor = greenColor,
                 indicatorColor = Color.White,
-                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                unselectedTextColor = Color.White.copy(alpha = 0.7f)
+                unselectedIconColor = Color.White,
+                unselectedTextColor = Color.White
             )
         )
 
@@ -65,8 +65,8 @@ fun BottomNavigationBar(
                 selectedIconColor = greenColor,
                 selectedTextColor = greenColor,
                 indicatorColor = Color.White,
-                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                unselectedTextColor = Color.White.copy(alpha = 0.7f)
+                unselectedIconColor = Color.White,
+                unselectedTextColor = Color.White
             )
         )
 
@@ -104,8 +104,8 @@ fun BottomNavigationBar(
                 selectedIconColor = greenColor,
                 selectedTextColor = greenColor,
                 indicatorColor = Color.White,
-                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                unselectedTextColor = Color.White.copy(alpha = 0.7f)
+                unselectedIconColor = Color.White,
+                unselectedTextColor = Color.White
             )
         )
 
@@ -122,8 +122,8 @@ fun BottomNavigationBar(
                 selectedIconColor = greenColor,
                 selectedTextColor = greenColor,
                 indicatorColor = Color.White,
-                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                unselectedTextColor = Color.White.copy(alpha = 0.7f)
+                unselectedIconColor = Color.White,
+                unselectedTextColor = Color.White
             )
         )
     }
