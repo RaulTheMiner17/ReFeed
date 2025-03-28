@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-// import androidx.compose.foundation.shape.CircleShape // Not used directly in this modified version
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,20 +15,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-// import androidx.compose.ui.draw.clip // Not used directly in this modified version
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-// import androidx.compose.ui.res.painterResource // Not used directly in this modified version
 import androidx.compose.ui.text.font.FontWeight
-// import androidx.compose.ui.text.style.TextAlign // Not used directly in this modified version
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-// import com.ran.refeed.R // Not used directly in this modified version
 import com.ran.refeed.data.model.FoodItem
 import com.ran.refeed.data.model.Shelter
 import com.ran.refeed.viewmodels.CartViewModel
@@ -37,7 +33,12 @@ import com.ran.refeed.viewmodels.HomeViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import com.ran.refeed.R
-
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +52,17 @@ fun HomeScreen(
     val isLoading by homeViewModel.isLoading.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
+    var showAddToCartAnimation by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Function to show animation for a short duration
+    fun showAddedToCartAnimation() {
+        showAddToCartAnimation = true
+        coroutineScope.launch {
+            delay(1500) // Show animation for 1.5 seconds
+            showAddToCartAnimation = false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -71,109 +83,147 @@ fun HomeScreen(
             )
         },
 
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // --- Section Moved: Nearby Shelters ---
-            if (shelters.isNotEmpty()) {
-                item {
-                    SectionTitle("Nearby Shelters")
+        ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // --- Section Moved: Nearby Shelters ---
+                if (shelters.isNotEmpty()) {
+                    item {
+                        SectionTitle("Nearby Shelters")
+                    }
+
+                    item {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(shelters) { shelter ->
+                                // ShelterCard is clickable due to the modifier in its definition
+                                // and the onClick lambda passed here.
+                                ShelterCard(
+                                    shelter = shelter,
+                                    onClick = { navController.navigate("donationCenter/${shelter.id}") }
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer slightly
+                    }
                 }
+                // --- End of Moved Section ---
 
                 item {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(shelters) { shelter ->
-                            // ShelterCard is clickable due to the modifier in its definition
-                            // and the onClick lambda passed here.
-                            ShelterCard(
-                                shelter = shelter,
-                                onClick = { navController.navigate("donationCenter/${shelter.id}") }
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                            homeViewModel.searchFoodItems(it)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted padding
+                        placeholder = { Text("Search for food...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = {
+                                    searchQuery = ""
+                                    homeViewModel.fetchFoodItems() // Refetch all items when clearing
+                                }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp)
+                    )
+                }
+
+                // Food Items Section
+                item {
+                    SectionTitle("Available Food")
+                }
+
+                if (isLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFF4CAF50)) // Use theme color if available
+                        }
+                    }
+                } else if (foodItems.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp), // Add padding for empty state
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "No food items match your search." else "No food items available right now.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.Gray // Use theme color if available
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer slightly
-                }
-            }
-            // --- End of Moved Section ---
-
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = {
-                        searchQuery = it
-                        homeViewModel.searchFoodItems(it)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted padding
-                    placeholder = { Text("Search for food...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = {
-                                searchQuery = ""
-                                homeViewModel.fetchFoodItems() // Refetch all items when clearing
-                            }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                } else {
+                    items(foodItems) { foodItem ->
+                        FoodItemCard(
+                            foodItem = foodItem,
+                            onClick = { navController.navigate("foodDetail/${foodItem.id}") },
+                            onAddToCart = {
+                                cartViewModel.addToCart(foodItem)
+                                showAddedToCartAnimation()
                             }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(24.dp)
-                )
-            }
-
-            // Food Items Section
-            item {
-                SectionTitle("Available Food")
-            }
-
-            if (isLoading) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = Color(0xFF4CAF50)) // Use theme color if available
-                    }
-                }
-            } else if (foodItems.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp), // Add padding for empty state
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "No food items match your search." else "No food items available right now.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Gray // Use theme color if available
                         )
                     }
                 }
-            } else {
-                items(foodItems) { foodItem ->
-                    FoodItemCard(
-                        foodItem = foodItem,
-                        onClick = { navController.navigate("foodDetail/${foodItem.id}") },
-                        onAddToCart = { cartViewModel.addToCart(foodItem) }
-                    )
+
+                // Add some space at the bottom for better scrolling with potential bottom bar
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
 
-            // Add some space at the bottom for better scrolling with potential bottom bar
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
+            // Add to Cart Animation Overlay
+            if (showAddToCartAnimation) {
+                AddToCartAnimation()
             }
+        }
+    }
+}
+
+@Composable
+fun AddToCartAnimation() {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.RawRes(R.raw.add_to_cart_animation)
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        isPlaying = true,
+        iterations = 1,
+        speed = 1.0f
+    )
+
+    Dialog(onDismissRequest = { }) {
+        Box(
+            modifier = Modifier
+                .size(200.dp)
+                .background(Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            LottieAnimation(
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }
@@ -205,7 +255,6 @@ fun ShelterCard(shelter: Shelter, onClick: () -> Unit) {
                         .data(shelter.imageUrl)
                         .crossfade(true)
                         .placeholder(R.drawable.center1) // Add a placeholder drawable
-
                         .build(),
                     contentDescription = shelter.name,
                     contentScale = ContentScale.Crop,
@@ -281,7 +330,6 @@ fun FoodItemCard(
                     model = ImageRequest.Builder(context)
                         .data(foodItem.imageUrl)
                         .crossfade(true)
-
                         .build(),
                     contentDescription = foodItem.name,
                     contentScale = ContentScale.Crop,
@@ -364,7 +412,6 @@ fun FoodItemCard(
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
-
                 // Quantity information
                 Row(
                     verticalAlignment = Alignment.CenterVertically

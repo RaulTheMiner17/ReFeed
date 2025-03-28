@@ -1,12 +1,16 @@
 package com.ran.refeed.viewmodels
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.ran.refeed.data.model.CartItem
 import com.ran.refeed.data.model.FoodItem
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -15,6 +19,15 @@ import java.util.Locale
 class CartViewModel : ViewModel() {
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
     val cartItems: StateFlow<List<CartItem>> = _cartItems
+
+    // Create a derived StateFlow for the cart item count using stateIn
+    val cartItemCount: StateFlow<Int> = _cartItems
+        .map { items -> items.sumOf { it.quantity } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
+        )
 
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
@@ -76,6 +89,7 @@ class CartViewModel : ViewModel() {
         return _cartItems.value.sumOf { it.foodItem.price * it.quantity }
     }
 
+    // Keep this method for backward compatibility
     fun getCartItemCount(): Int {
         return _cartItems.value.sumOf { it.quantity }
     }

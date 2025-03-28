@@ -126,6 +126,9 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.18")
 
     implementation("com.airbnb.android:lottie-compose:6.0.0")
+    implementation("androidx.compose.animation:animation:1.5.0")
+    // If you want to use Material Motion
+    implementation("com.google.accompanist:accompanist-navigation-animation:0.30.1")
 
 
 }
