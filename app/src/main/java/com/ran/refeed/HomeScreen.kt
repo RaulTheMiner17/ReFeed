@@ -1,5 +1,6 @@
 package com.ran.refeed.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 // import androidx.compose.ui.res.painterResource // Not used directly in this modified version
 import androidx.compose.ui.text.font.FontWeight
 // import androidx.compose.ui.text.style.TextAlign // Not used directly in this modified version
@@ -34,7 +36,8 @@ import com.ran.refeed.viewmodels.CartViewModel
 import com.ran.refeed.viewmodels.HomeViewModel
 import java.text.SimpleDateFormat
 import java.util.*
-// import com.ran.refeed.ui.components.BottomNavigationBar // Import was present but unused in original Scaffold
+import com.ran.refeed.R
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,7 +55,14 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ReFeed") },
+                title = {
+                    // Replace Text with Image
+                    Image(
+                        painter = painterResource(id = R.drawable.refeed_logo_text),
+                        contentDescription = "ReFeed Logo",
+                        modifier = Modifier.height(25f.dp) // Adjust height as needed
+                    )
+                },
                 actions = {
                     IconButton(onClick = { /* TODO: Implement notifications */ }) {
                         Icon(Icons.Default.Notifications, contentDescription = "Notifications")
@@ -60,9 +70,7 @@ fun HomeScreen(
                 }
             )
         },
-        // Note: The original code imported BottomNavigationBar but didn't use it here.
-        // If you need a bottom bar, you can add it like in the second example:
-        // bottomBar = { BottomNavigationBar(navController, cartViewModel) }
+
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -196,8 +204,8 @@ fun ShelterCard(shelter: Shelter, onClick: () -> Unit) {
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(shelter.imageUrl)
                         .crossfade(true)
-                        .placeholder(R.drawable.ic_placeholder) // Add a placeholder drawable
-                        .error(R.drawable.ic_placeholder) // Add an error drawable
+                        .placeholder(R.drawable.center1) // Add a placeholder drawable
+
                         .build(),
                     contentDescription = shelter.name,
                     contentScale = ContentScale.Crop,
@@ -273,8 +281,7 @@ fun FoodItemCard(
                     model = ImageRequest.Builder(context)
                         .data(foodItem.imageUrl)
                         .crossfade(true)
-                        .placeholder(R.drawable.ic_placeholder_food) // Add a food placeholder
-                        .error(R.drawable.ic_placeholder_food) // Add an error placeholder
+
                         .build(),
                     contentDescription = foodItem.name,
                     contentScale = ContentScale.Crop,

@@ -1,5 +1,6 @@
 package com.ran.refeed.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -91,6 +92,7 @@ fun CheckoutScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -104,6 +106,7 @@ fun CheckoutScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .background(Color.White) //BG Block
                             .padding(16.dp)
                     ) {
                         Text(
@@ -167,6 +170,7 @@ fun CheckoutScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .background(Color.White) //BG Block
                             .padding(16.dp)
                     ) {
                         Text(

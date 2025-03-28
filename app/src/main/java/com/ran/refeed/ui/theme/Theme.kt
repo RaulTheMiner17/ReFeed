@@ -11,7 +11,7 @@ import com.ran.refeed.R
 
 val Green = Color(0xFF50944A)
 val LightGreen = Color(0xFF64CE4A)
-val White = Color(0xFFFFFFFF)
+val White = Color(0xFFFFFEE1)
 
 // Define BeVietnamPro font family with correct file names
 val BeVietnamProFamily = FontFamily(
