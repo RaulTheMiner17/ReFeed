@@ -230,7 +230,7 @@ fun CartItemCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
+                val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
                 Text(
                     text = currencyFormat.format(cartItem.foodItem.price),
                     style = MaterialTheme.typography.bodyLarge,

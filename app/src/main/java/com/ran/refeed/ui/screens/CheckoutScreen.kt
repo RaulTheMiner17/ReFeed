@@ -125,7 +125,7 @@ fun CheckoutScreen(
                                 )
 
                                 val itemTotal = cartItem.foodItem.price * cartItem.quantity
-                                val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
+                                val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
                                 Text(
                                     text = currencyFormat.format(itemTotal),
                                     style = MaterialTheme.typography.bodyLarge
@@ -147,7 +147,7 @@ fun CheckoutScreen(
                                 fontWeight = FontWeight.Bold
                             )
 
-                            val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
+                            val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
                             Text(
                                 text = currencyFormat.format(cartTotal),
                                 style = MaterialTheme.typography.titleMedium,
