@@ -86,8 +86,8 @@ fun SplashScreen(
         // Tagline with animations
         Text(
             text = "Reducing Food Waste, One Meal at a Time",
-            color = Color.White,
-            fontSize = 16.sp,
+            color = Color.Black,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier
                 .align(Alignment.BottomCenter)

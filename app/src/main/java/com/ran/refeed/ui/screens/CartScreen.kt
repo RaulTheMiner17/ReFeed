@@ -33,7 +33,10 @@ fun CartScreen(
     cartViewModel: CartViewModel
 ) {
     val cartItems by cartViewModel.cartItems.collectAsState()
-    val cartTotal = cartViewModel.getCartTotal()
+    // Calculate cart total directly from cart items to ensure it updates reactively
+    val cartTotal = remember(cartItems) {
+        cartItems.sumOf { it.foodItem.price * it.quantity }
+    }
 
     Scaffold(
         topBar = {
@@ -237,16 +240,37 @@ fun CartItemCard(
                     color = Color(0xFF4CAF50),
                     fontWeight = FontWeight.Bold
                 )
+
+                // Add available quantity information
+                Text(
+                    text = "Available: ${cartItem.foodItem.quantityNumber}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
             }
 
             // Quantity controls
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Only allow increasing if below available quantity
+                val canIncrease = cartItem.quantity < cartItem.foodItem.quantityNumber
                 IconButton(
-                    onClick = { onQuantityChange(cartItem.quantity + 1) }
+                    onClick = {
+                        if (canIncrease) {
+                            onQuantityChange(cartItem.quantity + 1)
+                        }
+                    },
+                    enabled = canIncrease
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Increase Quantity")
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Increase Quantity",
+                        tint = if (canIncrease)
+                            LocalContentColor.current
+                        else
+                            LocalContentColor.current.copy(alpha = 0.38f)
+                    )
                 }
 
                 Text(

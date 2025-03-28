@@ -23,13 +23,15 @@ class CartViewModel : ViewModel() {
         val existingItem = _cartItems.value.find { it.foodItem.id == foodItem.id }
 
         if (existingItem != null) {
-            // If item already exists in cart, increase quantity
-            _cartItems.update { currentItems ->
-                currentItems.map {
-                    if (it.foodItem.id == foodItem.id) {
-                        it.copy(quantity = it.quantity + 1)
-                    } else {
-                        it
+            // If item already exists in cart, increase quantity if below available quantity
+            if (existingItem.quantity < foodItem.quantityNumber) {
+                _cartItems.update { currentItems ->
+                    currentItems.map {
+                        if (it.foodItem.id == foodItem.id) {
+                            it.copy(quantity = it.quantity + 1)
+                        } else {
+                            it
+                        }
                     }
                 }
             }
@@ -56,7 +58,9 @@ class CartViewModel : ViewModel() {
         _cartItems.update { currentItems ->
             currentItems.map {
                 if (it.foodItem.id == foodItemId) {
-                    it.copy(quantity = quantity)
+                    // Ensure quantity doesn't exceed available quantity
+                    val newQuantity = minOf(quantity, it.foodItem.quantityNumber)
+                    it.copy(quantity = newQuantity)
                 } else {
                     it
                 }
@@ -129,11 +133,17 @@ class CartViewModel : ViewModel() {
         firestore.collection("orders")
             .add(order)
             .addOnSuccessListener { documentReference ->
-                // Update food items status to "pending"
+                // Update food items status to "pending" and reduce quantity
                 _cartItems.value.forEach { cartItem ->
                     firestore.collection("foodItems")
                         .document(cartItem.foodItem.id)
-                        .update("status", "pending")
+                        .update(
+                            mapOf(
+                                "status" to "pending",
+                                // Update the remaining quantity
+                                "quantityNumber" to (cartItem.foodItem.quantityNumber - cartItem.quantity)
+                            )
+                        )
                 }
 
                 // Update user's order count
