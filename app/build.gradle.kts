@@ -12,7 +12,7 @@ android {
     defaultConfig {
         applicationId = "com.ran.refeed"
         minSdk = 26
-        targetSdk = 34  // targetSdk should match compileSdk
+        targetSdk = 30  // targetSdk should match compileSdk
         versionCode = 1
         versionName = "1.0"
 
