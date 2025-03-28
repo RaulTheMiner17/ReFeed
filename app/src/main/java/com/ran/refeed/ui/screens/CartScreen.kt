@@ -175,11 +175,14 @@ fun CartItemCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(Color.White) //BG Block
                 .padding(8.dp),
+
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Food image
@@ -216,6 +219,7 @@ fun CartItemCard(
             // Food details
             Column(
                 modifier = Modifier.weight(1f)
+
             ) {
                 Text(
                     text = cartItem.foodItem.name,

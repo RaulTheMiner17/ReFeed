@@ -257,6 +257,7 @@ fun MyDonationItem(foodItem: FoodItem) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(Color.White) //BG Block
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -294,6 +295,7 @@ fun MyDonationItem(foodItem: FoodItem) {
             // Food details
             Column(
                 modifier = Modifier.weight(1f)
+
             ) {
                 Text(
                     text = foodItem.name,

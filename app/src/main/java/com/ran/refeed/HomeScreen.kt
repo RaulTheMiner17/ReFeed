@@ -304,6 +304,7 @@ fun FoodItemCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Color.White) //BG Block
                     .padding(16.dp)
             ) {
                 Row(
