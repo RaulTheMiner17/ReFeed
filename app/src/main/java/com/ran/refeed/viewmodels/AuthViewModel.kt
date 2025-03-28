@@ -1,4 +1,3 @@
-// viewmodels/AuthViewModel.kt
 package com.ran.refeed.viewmodels
 
 import androidx.lifecycle.ViewModel
@@ -19,6 +18,19 @@ class AuthViewModel : ViewModel() {
 
     private val _currentUser = MutableStateFlow<FirebaseUser?>(auth.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser
+
+    // Initialize by checking current auth state
+    init {
+        checkCurrentUser()
+    }
+
+    private fun checkCurrentUser() {
+        val user = auth.currentUser
+        if (user != null) {
+            _currentUser.value = user
+            _authState.value = AuthState.Success
+        }
+    }
 
     fun register(
         name: String,
@@ -85,5 +97,10 @@ class AuthViewModel : ViewModel() {
         auth.signOut()
         _currentUser.value = null
         _authState.value = AuthState.Initial
+    }
+
+    // Helper method to check if user is logged in
+    fun isUserLoggedIn(): Boolean {
+        return auth.currentUser != null
     }
 }

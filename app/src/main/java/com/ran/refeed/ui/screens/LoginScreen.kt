@@ -1,4 +1,3 @@
-// ui/screens/LoginScreen.kt
 package com.ran.refeed.ui.screens
 
 import androidx.compose.foundation.Image
@@ -32,6 +31,14 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
 
     val authState by viewModel.authState.collectAsStateWithLifecycle()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+
+    // If user is already logged in, navigate to home
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            onLoginSuccess()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Background Image

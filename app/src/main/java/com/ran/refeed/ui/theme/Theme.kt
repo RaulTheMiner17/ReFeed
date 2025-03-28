@@ -6,9 +6,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val Green = Color(0xFF4CAF50)
-val LightGreen = Color(0xFFAED581)
-val White = Color(0xFFFFFFFF)
+val Green = Color(0xFF50944A)
+val LightGreen = Color(0xFF64CE4A)
+val White = Color(0xFFFFFEE1)
 
 private val LightColorScheme = lightColorScheme(
     primary = Green,

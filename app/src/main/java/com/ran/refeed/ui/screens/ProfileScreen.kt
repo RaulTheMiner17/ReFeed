@@ -23,6 +23,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.ran.refeed.data.model.FoodItem
+import com.ran.refeed.viewmodels.AuthViewModel
 import com.ran.refeed.viewmodels.ProfileViewModel
 import java.util.Locale
 
@@ -30,7 +31,8 @@ import java.util.Locale
 @Composable
 fun ProfileScreen(
     navController: NavController,
-    profileViewModel: ProfileViewModel = viewModel()
+    profileViewModel: ProfileViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()  // Add AuthViewModel
 ) {
     val user by profileViewModel.user.collectAsState()
     val myFoodItems by profileViewModel.myFoodItems.collectAsState()
@@ -203,7 +205,8 @@ fun ProfileScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        profileViewModel.signOut()
+                        // Use AuthViewModel to sign out
+                        authViewModel.signOut()
                         navController.navigate("login") {
                             popUpTo("home") { inclusive = true }
                         }
@@ -279,7 +282,6 @@ fun MyDonationItem(foodItem: FoodItem) {
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-
                         imageVector = Icons.Default.Restaurant,
                         contentDescription = "Food",
                         tint = Color.White

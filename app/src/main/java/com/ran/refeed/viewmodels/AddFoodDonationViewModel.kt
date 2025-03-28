@@ -63,10 +63,9 @@ class AddFoodDonationViewModel : ViewModel() {
                 }
 
                 // Upload image if available
-                val imageUrl = if (imageUri != null) {
-                    uploadImage(imageUri)
-                } else {
-                    ""
+                var imageUrl = ""
+                if (imageUri != null) {
+                    imageUrl = uploadImage(imageUri)
                 }
 
                 // Create food item document
@@ -111,11 +110,16 @@ class AddFoodDonationViewModel : ViewModel() {
 
     private suspend fun uploadImage(imageUri: Uri): String {
         val storageRef = storage.reference
-        val imageRef = storageRef.child("food_images/${UUID.randomUUID()}")
+        val imageFileName = "food_images/${UUID.randomUUID()}.jpg"
+        val imageRef = storageRef.child(imageFileName)
 
         return try {
-            val uploadTask = imageRef.putFile(imageUri).await()
-            imageRef.downloadUrl.await().toString()
+            // Upload the file and wait for completion
+            imageRef.putFile(imageUri).await()
+
+            // Get and return the download URL - this is the key step
+            val downloadUrl = imageRef.downloadUrl.await()
+            downloadUrl.toString()
         } catch (e: Exception) {
             e.printStackTrace()
             ""
