@@ -23,6 +23,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.ran.refeed.data.model.FoodItem
+import com.ran.refeed.data.model.Order
 import com.ran.refeed.viewmodels.AuthViewModel
 import com.ran.refeed.viewmodels.ProfileViewModel
 import java.util.Locale
@@ -36,6 +37,7 @@ fun ProfileScreen(
 ) {
     val user by profileViewModel.user.collectAsState()
     val myFoodItems by profileViewModel.myFoodItems.collectAsState()
+    val myOrders by profileViewModel.myOrders.collectAsState() // Add this line to get orders
     val isLoading by profileViewModel.isLoading.collectAsState()
 
     var showSignOutDialog by remember { mutableStateOf(false) }
@@ -142,6 +144,46 @@ fun ProfileScreen(
                     }
                 }
 
+                // My Orders Section - Add this section
+                item {
+                    Divider()
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "My Orders",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // My Orders List - Add this section
+                if (myOrders.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "You haven't ordered any food items yet",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                } else {
+                    items(myOrders) { order ->
+                        MyOrderItem(order = order)
+                    }
+                }
 
                 // My Donations Section
                 item {
@@ -160,14 +202,11 @@ fun ProfileScreen(
                             fontWeight = FontWeight.Bold
                         )
 
-                        // Update the TextButton in the "My Donations Section" item:
-
                         TextButton(onClick = { navController.navigate("addFoodDonation") }) {
                             Icon(Icons.Default.Add, contentDescription = "Add Donation")
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Add New")
                         }
-
                     }
                 }
 
@@ -177,7 +216,7 @@ fun ProfileScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp),
+                                .height(100.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -245,6 +284,176 @@ fun InfoItem(label: String, value: String) {
     }
 }
 
+@Composable
+fun MyOrderItem(order: Order) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(16.dp)
+        ) {
+            // Order header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Order #${order.id.takeLast(6).uppercase()}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Status chip
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = when (order.status) {
+                        "Processing" -> Color(0xFFFFA000).copy(alpha = 0.2f)
+                        "Completed" -> Color(0xFF4CAF50).copy(alpha = 0.2f)
+                        "Cancelled" -> Color.Red.copy(alpha = 0.2f)
+                        else -> Color.Gray.copy(alpha = 0.2f)
+                    },
+                    modifier = Modifier.wrapContentWidth()
+                ) {
+                    Text(
+                        text = order.status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when (order.status) {
+                            "Processing" -> Color(0xFFFFA000)
+                            "Completed" -> Color(0xFF4CAF50)
+                            "Cancelled" -> Color.Red
+                            else -> Color.Gray
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Order date
+            Text(
+                text = "Date: ${order.date}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Order items
+            Text(
+                text = "Items:",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // List the first 2 items
+            order.items.take(2).forEach { item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Item image (small)
+                    if (item.imageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(item.imageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = item.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.LightGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Restaurant,
+                                contentDescription = "Food",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Item name and donor
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = item.name,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "From: ${item.donorName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+
+                    // Item price
+                    Text(
+                        text = "Rs. ${item.price}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // Show "more items" if there are more than 2
+            if (order.items.size > 2) {
+                Text(
+                    text = "+ ${order.items.size - 2} more items",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Divider()
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Order total
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Total",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Rs. ${order.total}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4CAF50)
+                )
+            }
+        }
+    }
+}
 @Composable
 fun MyDonationItem(foodItem: FoodItem) {
     Card(
