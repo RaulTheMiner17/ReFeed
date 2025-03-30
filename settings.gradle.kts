@@ -10,9 +10,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://jitpack.io") } // Correct placement
     }
 }
 
 rootProject.name = "ReFeed"
 include(":app")
- 

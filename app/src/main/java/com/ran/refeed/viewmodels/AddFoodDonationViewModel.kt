@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.ran.refeed.utils.FoodDetectionHelper
 import io.appwrite.Client
 import io.appwrite.ID
 import io.appwrite.models.InputFile
@@ -33,13 +34,34 @@ class AddFoodDonationViewModel : ViewModel() {
     private val _isSuccess = MutableStateFlow(false)
     val isSuccess: StateFlow<Boolean> = _isSuccess
 
+    private val _detectedFoodName = MutableStateFlow("")
+    val detectedFoodName: StateFlow<String> = _detectedFoodName
+
+    private val _isDetecting = MutableStateFlow(false)
+    val isDetecting: StateFlow<Boolean> = _isDetecting
+
     // Initialize Appwrite client
     fun initAppwrite(context: Context) {
         appwriteClient = Client(context)
             .setEndpoint("https://cloud.appwrite.io/v1")
             .setProject(appwriteProjectId)
-
         appwriteStorage = Storage(appwriteClient)
+    }
+
+    fun detectFoodFromImage(context: Context, imageUri: Uri?) {
+        if (imageUri == null) return
+
+        viewModelScope.launch {
+            try {
+                _isDetecting.value = true
+                val detectedName = FoodDetectionHelper.detectFoodFromImage(context, imageUri)
+                _detectedFoodName.value = detectedName
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isDetecting.value = false
+            }
+        }
     }
 
     fun addFoodDonation(
@@ -60,7 +82,6 @@ class AddFoodDonationViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-
                 val currentUser = auth.currentUser ?: throw Exception("User not authenticated")
                 val userDocRef = firestore.collection("users").document(currentUser.uid)
 
@@ -82,7 +103,6 @@ class AddFoodDonationViewModel : ViewModel() {
                         "profileImageUrl" to (currentUser.photoUrl?.toString() ?: ""),
                         "createdAt" to System.currentTimeMillis()
                     )
-
                     userDocRef.set(newUser).await()
                     currentUser.displayName ?: "Anonymous"
                 }
@@ -119,7 +139,6 @@ class AddFoodDonationViewModel : ViewModel() {
                 } else {
                     0
                 }
-
                 userDocRef.update("donationsCount", currentDonations + 1)
                     .await()
 
@@ -139,7 +158,6 @@ class AddFoodDonationViewModel : ViewModel() {
             val inputStream = context.contentResolver.openInputStream(imageUri)
             val tempFile = File.createTempFile("upload", ".jpg", context.cacheDir)
             val outputStream = FileOutputStream(tempFile)
-
             inputStream?.use { input ->
                 outputStream.use { output ->
                     input.copyTo(output)

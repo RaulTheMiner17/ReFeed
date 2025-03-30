@@ -12,7 +12,7 @@ android {
     defaultConfig {
         applicationId = "com.ran.refeed"
         minSdk = 26
-        targetSdk = 30  // targetSdk should match compileSdk
+        targetSdk = 34  // targetSdk should match compileSdk
         versionCode = 1
         versionName = "1.0"
 
@@ -130,5 +130,7 @@ dependencies {
     // If you want to use Material Motion
     implementation("com.google.accompanist:accompanist-navigation-animation:0.30.1")
     implementation("io.appwrite:sdk-for-android:6.1.0")
+    implementation("org.opencv:opencv:4.11.0")
+    implementation("com.google.mlkit:image-labeling:17.0.7")
 
 }

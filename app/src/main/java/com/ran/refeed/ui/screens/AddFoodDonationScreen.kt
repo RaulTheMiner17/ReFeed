@@ -41,6 +41,8 @@ fun AddFoodDonationScreen(
     val context = LocalContext.current
     val isLoading by viewModel.isLoading.collectAsState()
     val isSuccess by viewModel.isSuccess.collectAsState()
+    val isDetecting by viewModel.isDetecting.collectAsState()
+    val detectedFoodName by viewModel.detectedFoodName.collectAsState()
 
     // Initialize Appwrite on first composition
     LaunchedEffect(Unit) {
@@ -56,6 +58,13 @@ fun AddFoodDonationScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
+    // Update name when food is detected
+    LaunchedEffect(detectedFoodName) {
+        if (detectedFoodName.isNotEmpty() && name.isEmpty()) {
+            name = detectedFoodName
+        }
+    }
+
     // Date formatter
     val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
@@ -64,6 +73,10 @@ fun AddFoodDonationScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         imageUri = uri
+        // Trigger food detection when image is selected
+        if (uri != null) {
+            viewModel.detectFoodFromImage(context, uri)
+        }
     }
 
     // Handle success navigation
@@ -97,13 +110,16 @@ fun AddFoodDonationScreen(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Image Selection
+// Image Selection
                 Box(
                     modifier = Modifier
                         .size(200.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color.LightGray)
-                        .border(1.dp, Color.Gray, RoundedCornerShape(8.dp))
+                        .border(
+                            1.dp, Color.Gray,
+                            RoundedCornerShape(8.dp)
+                        )
                         .clickable { imagePickerLauncher.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
@@ -115,9 +131,7 @@ fun AddFoodDonationScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 imageVector = Icons.Default.Camera,
                                 contentDescription = "Add Image",
@@ -125,23 +139,45 @@ fun AddFoodDonationScreen(
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Add Photo",
-                                color = Color.White
-                            )
+                            Text (text = "Add Photo", color = Color.White)
+                        }
+                    }
+                    // Show detecting indicator
+                    if (isDetecting) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                CircularProgressIndicator(color = Color.White)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Detecting food...",
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Food Name
+                // Food Name with auto-detection
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Food Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    supportingText = {
+                        if (detectedFoodName.isNotEmpty()) {
+                            Text("AI detected: $detectedFoodName")
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -171,9 +207,7 @@ fun AddFoodDonationScreen(
                         modifier = Modifier.weight(2f),
                         singleLine = true
                     )
-
                     Spacer(modifier = Modifier.width(8.dp))
-
                     OutlinedTextField(
                         value = quantityNumber,
                         onValueChange = {
@@ -239,7 +273,7 @@ fun AddFoodDonationScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    enabled = !isLoading && name.isNotBlank() && description.isNotBlank() && quantity.isNotBlank()
+                    enabled = !isLoading && !isDetecting && name.isNotBlank() && description.isNotBlank() && quantity.isNotBlank()
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
@@ -266,12 +300,11 @@ fun AddFoodDonationScreen(
         }
     }
 
-    // Date Picker Dialog
+// Date Picker Dialog
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = expiryDate
         )
-
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -296,4 +329,3 @@ fun AddFoodDonationScreen(
         }
     }
 }
-
