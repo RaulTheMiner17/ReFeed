@@ -1,11 +1,12 @@
 package com.ran.refeed.ui.screens
 
 import android.net.Uri
+import android.util.Log // Added for logging initialize call
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility // Ensure this is imported
-import androidx.compose.animation.fadeIn // Ensure this is imported
-import androidx.compose.animation.fadeOut // Ensure this is imported
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,7 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.CameraAlt // Changed Icon for clarity
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
@@ -37,6 +38,7 @@ import coil.compose.AsyncImage
 import com.ran.refeed.viewmodels.AddFoodDonationViewModel // Ensure this import is correct
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.TimeUnit // For default expiry calculation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,24 +51,30 @@ fun AddFoodDonationScreen(
     val isSuccess by viewModel.isSuccess.collectAsState()
     val isDetecting by viewModel.isDetecting.collectAsState()
     val detectedFoodName by viewModel.detectedFoodName.collectAsState()
+    val alternatives by viewModel.alternativeFoodSuggestions.collectAsState() // Collect alternatives
+    val confidence by viewModel.detectionConfidence.collectAsState() // Collect confidence
 
-    // Initialize Appwrite or other services if needed
-    LaunchedEffect(Unit) {
-        // viewModel.initAppwrite(context) // Assuming this is correct for your setup
-    }
-
+    // State for UI elements
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var quantity by remember { mutableStateOf("") }
-    var quantityNumber by remember { mutableStateOf("1") }
+    var quantity by remember { mutableStateOf("") } // Text quantity (e.g., "2 boxes")
+    var quantityNumber by remember { mutableStateOf("1") } // Numerical quantity
     var price by remember { mutableStateOf("0.00") }
-    var expiryDate by remember { mutableLongStateOf(System.currentTimeMillis() + (7 * 24 * 60 * 60 * 1000)) } // Default 7 days
+    // Default expiry: 7 days from today
+    val defaultExpiryMillis = remember { System.currentTimeMillis() + TimeUnit.DAYS.toMillis(7) }
+    var expiryDate by remember { mutableLongStateOf(defaultExpiryMillis) }
     var showDatePicker by remember { mutableStateOf(false) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Update name based on detection
+    // Initialize ViewModel dependencies (Appwrite client, Detection Service)
+    LaunchedEffect(key1 = Unit) {
+        Log.d("AddFoodScreen", "Initializing ViewModel dependencies...")
+        viewModel.initialize(context.applicationContext) // Use application context
+    }
+
+    // Update name field when AI detection completes (if name is empty)
     LaunchedEffect(detectedFoodName) {
-        if (detectedFoodName.isNotEmpty() && name.isEmpty()) {
+        if (detectedFoodName.isNotEmpty() && name.isBlank()) {
             name = detectedFoodName
         }
     }
@@ -74,22 +82,22 @@ fun AddFoodDonationScreen(
     // Date formatter (remembered)
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
 
-    // Image picker
+    // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         imageUri = uri
-        if (uri != null) {
-            viewModel.detectFoodFromImage(context, uri)
+        uri?.let { // Only call detection if URI is not null
+            viewModel.detectFoodFromImage(it) // Pass only URI
         }
     }
 
-    // Handle success navigation
+    // Handle success: Navigate back and reset ViewModel state
     LaunchedEffect(isSuccess) {
         if (isSuccess) {
+            Log.d("AddFoodScreen", "Success detected, navigating back and resetting state.")
             navController.popBackStack()
-            // Consider resetting isSuccess state in ViewModel here
-            // viewModel.resetSuccessState()
+            viewModel.resetSuccessState() // Reset the flag in ViewModel (Ensure this exists in VM)
         }
     }
 
@@ -108,141 +116,138 @@ fun AddFoodDonationScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues) // Apply Scaffold padding
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .padding(16.dp) // Padding for content inside the column
+                    .verticalScroll(rememberScrollState()), // Make content scrollable
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Image Selection Box
+
+                // --- Image Selection Box ---
                 Box(
                     modifier = Modifier
                         .size(200.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant) // Theme color
+                        .clip(RoundedCornerShape(12.dp)) // Slightly rounder corners
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .border(
-                            1.dp, MaterialTheme.colorScheme.outline, // Theme color
-                            RoundedCornerShape(8.dp)
+                            1.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), // Subtler border
+                            RoundedCornerShape(12.dp)
                         )
-                        .clickable { imagePickerLauncher.launch("image/*") },
+                        .clickable { imagePickerLauncher.launch("image/*") }, // Launch picker on click
                     contentAlignment = Alignment.Center
                 ) {
+                    // Display Selected Image or Placeholder
                     if (imageUri != null) {
                         AsyncImage(
                             model = imageUri,
-                            contentDescription = "Food Image",
-                            contentScale = ContentScale.Crop,
+                            contentDescription = "Selected food image",
+                            contentScale = ContentScale.Crop, // Crop to fit
                             modifier = Modifier.fillMaxSize()
                         )
-
-                        // Detection Success Indicator - Syntactically Correct
+                        // Detection Success Indicator (using AnimatedVisibility directly in Box scope)
                         this@Column.AnimatedVisibility(
                             visible = !isDetecting && detectedFoodName.isNotEmpty(),
                             enter = fadeIn(),
                             exit = fadeOut(),
-                            modifier = Modifier.align(Alignment.TopEnd)
+                            modifier = Modifier
+                                .align(Alignment.TopEnd) // Position top-right
+                                .padding(8.dp) // Padding from edges
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = "Detection Successful",
-                                tint = Color(0xFF4CAF50), // Green color
+                                tint = Color(0xFF4CAF50), // Explicit Green
                                 modifier = Modifier
-                                    .padding(8.dp)
                                     .size(32.dp)
-                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), shape = CircleShape) // Theme color
+                                    .background(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                        shape = CircleShape
+                                    )
                                     .padding(4.dp)
                             )
                         }
                     } else {
+                        // Placeholder when no image is selected
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
-                                imageVector = Icons.Default.Camera,
-                                contentDescription = "Add Image",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant, // Theme color
+                                imageVector = Icons.Default.CameraAlt, // Changed Icon
+                                contentDescription = "Add Image Placeholder",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Add Photo",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant // Theme color
+                                text = "Tap to Add Photo",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    // Detecting Indicator Overlay - Syntactically Correct
+                    // --- Detecting Indicator Overlay ---
                     this@Column.AnimatedVisibility(
                         visible = isDetecting,
                         enter = fadeIn(),
-                        exit = fadeOut()
+                        exit = fadeOut(),
+                        modifier = Modifier.matchParentSize() // Make overlay fill the Box
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.7f)),
+                                .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(12.dp)), // Match rounding
                             contentAlignment = Alignment.Center
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    strokeWidth = 3.dp
-                                )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
                                 Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "AI Detecting Food...",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Please wait",
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    style = MaterialTheme.typography.bodySmall // Correct use of style
-                                )
+                                Text("AI Detecting Food...", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Please wait", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
                 } // End Image Selection Box
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp)) // Increased spacing
 
-                // Food Name TextField
+                // --- Food Name TextField ---
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Food Name") },
+                    label = { Text("Food Name *") }, // Indicate required
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     supportingText = {
-                        if (detectedFoodName.isNotEmpty()) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "AI Detected",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                        // Show AI detection result and confidence
+                        if (detectedFoodName.isNotEmpty() && confidence > 0) {
+                            val confidenceText = "AI detected: $detectedFoodName (${(confidence * 100).toInt()}%)"
+                            val alternativesText = if (alternatives.isNotEmpty()) " / Alternative: ${alternatives.take(2).joinToString()}" else "" // Abbreviated
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = "AI Detected", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    "AI detected: $detectedFoodName",
+                                    text = confidenceText + alternativesText,
                                     color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.bodySmall
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2 // Allow wrapping for alternatives
                                 )
                             }
+                        } else if (isDetecting) {
+                            Text("Detecting name...", style = MaterialTheme.typography.bodySmall)
+                        } else if (imageUri != null && detectedFoodName.isEmpty() && !isDetecting) {
+                            // Indicate if detection finished with no result
+                            Text("AI could not detect food name.", style = MaterialTheme.typography.bodySmall)
                         }
                     },
                     trailingIcon = {
+                        // Button to use the AI suggestion if different
                         if (detectedFoodName.isNotEmpty() && name != detectedFoodName) {
                             TextButton(
                                 onClick = { name = detectedFoodName },
-                                contentPadding = PaddingValues(horizontal = 8.dp) // Adjust padding if needed
+                                contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                Text("Use Suggestion") // Shortened text
+                                Text("Use") // Shortened text
                             }
                         }
                     }
@@ -250,28 +255,28 @@ fun AddFoodDonationScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Description TextField
+                // --- Description TextField ---
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description") },
+                    label = { Text("Description *") }, // Indicate required
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 100.dp), // Use heightIn
+                        .heightIn(min = 100.dp), // Minimum height
                     maxLines = 5
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Quantity Row
+                // --- Quantity Row ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top // Align labels to top
                 ) {
                     OutlinedTextField(
                         value = quantity,
                         onValueChange = { quantity = it },
-                        label = { Text("Quantity (e.g., boxes)") },
+                        label = { Text("Unit (e.g., boxes) *") }, // Indicate required
                         modifier = Modifier.weight(2f),
                         singleLine = true
                     )
@@ -279,11 +284,10 @@ fun AddFoodDonationScreen(
                     OutlinedTextField(
                         value = quantityNumber,
                         onValueChange = { input ->
-                            if (input.isEmpty() || input.all { it.isDigit() }) {
-                                quantityNumber = input
-                            }
+                            // Allow empty or digits only, filter non-digits
+                            quantityNumber = input.filter { it.isDigit() }
                         },
-                        label = { Text("Number") },
+                        label = { Text("Number *") }, // Indicate required
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -292,15 +296,16 @@ fun AddFoodDonationScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Price TextField
+                // --- Price TextField ---
                 OutlinedTextField(
                     value = price,
                     onValueChange = { input ->
-                        if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d*\$"))) {
+                        // Allow empty, or numbers with optional single decimal point (up to 2 places)
+                        if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d{0,2}\$"))) {
                             price = input
                         }
                     },
-                    label = { Text("Price (Rs.)") },
+                    label = { Text("Price (Rs.) *") }, // Indicate required
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -308,43 +313,54 @@ fun AddFoodDonationScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Expiry Date TextField
+                // --- Expiry Date TextField ---
                 OutlinedTextField(
-                    value = dateFormatter.format(Date(expiryDate)),
-                    onValueChange = { },
-                    label = { Text("Expiry Date") },
+                    value = dateFormatter.format(Date(expiryDate)), // Format the selected date
+                    onValueChange = { }, // Read-only field
+                    label = { Text("Expiry Date *") }, // Indicate required
                     modifier = Modifier.fillMaxWidth(),
                     readOnly = true,
                     trailingIcon = {
                         IconButton(onClick = { showDatePicker = true }) {
-                            Icon(Icons.Default.DateRange, contentDescription = "Select Date")
+                            Icon(Icons.Default.DateRange, contentDescription = "Select Expiry Date")
                         }
                     }
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Submit Button
+                // --- Submit Button ---
+                val canSubmit = remember(name, description, quantity, quantityNumber, price, imageUri, isLoading, isDetecting) {
+                    !isLoading && !isDetecting &&
+                            name.isNotBlank() &&
+                            description.isNotBlank() &&
+                            quantity.isNotBlank() &&
+                            (quantityNumber.toIntOrNull() ?: 0) > 0 && // Ensure number is positive
+                            (price.toDoubleOrNull()) != null && // Ensure price is a valid double (allows 0.0)
+                            imageUri != null // Image must be selected
+                }
                 Button(
                     onClick = {
-                        val finalQuantityNumber = quantityNumber.toIntOrNull() ?: 1
-                        val finalPrice = price.toDoubleOrNull() ?: 0.0
+                        val finalQuantityNumber = quantityNumber.toIntOrNull() ?: 1 // Fallback should ideally not be needed due to validation
+                        val finalPrice = price.toDoubleOrNull() ?: 0.0 // Fallback
+                        // Call ViewModel function to add donation
                         viewModel.addFoodDonation(
-                            context = context,
+                            context = context, // Context needed for image upload within VM
                             name = name.trim(),
                             description = description.trim(),
                             quantity = quantity.trim(),
                             quantityNumber = finalQuantityNumber,
                             price = finalPrice,
                             expiryDate = expiryDate,
-                            imageUri = imageUri
+                            imageUri = imageUri!! // Use non-null assertion as imageUri is checked in `canSubmit`
                         )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    enabled = !isLoading && !isDetecting && name.isNotBlank() && description.isNotBlank() && quantity.isNotBlank() && quantityNumber.toIntOrNull() != null && quantityNumber.toIntOrNull()!! > 0 && imageUri != null
+                    enabled = canSubmit // Enable based on validation state
                 ) {
+                    // Show progress or text based on isLoading state
                     if (isLoading) {
                         CircularProgressIndicator(
                             color = MaterialTheme.colorScheme.onPrimary,
@@ -355,14 +371,16 @@ fun AddFoodDonationScreen(
                         Text("Submit Donation")
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp)) // Add some padding at the bottom
             } // End Column
 
-            // Loading overlay for submission
+            // --- Loading overlay for submission ---
             if (isLoading) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.5f)),
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .clickable(enabled = false, onClick = {}), // Prevent clicks behind overlay
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -375,47 +393,50 @@ fun AddFoodDonationScreen(
         } // End Outer Box
     } // End Scaffold
 
-    // Date Picker Dialog
+    // --- Date Picker Dialog ---
     if (showDatePicker) {
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+        // Calculate today's start of day in UTC milliseconds
+        val today = remember {
+            Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
         }
+
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = expiryDate.coerceAtLeast(today.timeInMillis), // Ensure initial date is not past
+            initialSelectedDateMillis = expiryDate.coerceAtLeast(today), // Ensure initial is not past
             selectableDates = object : SelectableDates {
+                // Allow selection only from today onwards
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    return utcTimeMillis >= today.timeInMillis
+                    return utcTimeMillis >= today
                 }
             }
         )
+
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { selectedDate ->
-                            // Redundant check as selectableDates should prevent this, but safe
-                            if (selectedDate >= today.timeInMillis) {
+                            // Only update if the selected date is valid
+                            if (selectedDate >= today) {
                                 expiryDate = selectedDate
                             }
                         }
-                        showDatePicker = false
+                        showDatePicker = false // Close dialog
                     },
+                    // Enable confirm only if a date is selected
                     enabled = datePickerState.selectedDateMillis != null
-                ) {
-                    Text("OK")
-                }
+                ) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
             }
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(state = datePickerState) // Show the DatePicker composable
         }
     }
 } // End Composable Function
