@@ -67,6 +67,8 @@ android {
 dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.google.android.gms:play-services-maps:19.1.0")
+    implementation("com.google.mlkit:object-detection-common:18.0.0")
+    implementation("com.google.mlkit:object-detection:17.0.2")
     // Use a central place for versions (libs.versions.toml is BEST, but this works)
     val composeBomVersion = "2024.02.01" //  Latest *STABLE* BOM.  Check for updates!
     val lifecycleVersion = "2.7.0"

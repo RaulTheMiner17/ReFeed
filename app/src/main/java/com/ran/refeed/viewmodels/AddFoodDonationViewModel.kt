@@ -2,11 +2,11 @@ package com.ran.refeed.viewmodels
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.ran.refeed.utils.FoodDetectionHelper
 import io.appwrite.Client
 import io.appwrite.ID
 import io.appwrite.models.InputFile
@@ -18,6 +18,8 @@ import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import com.ran.refeed.utils.AdvancedFoodDetectionService
+import kotlinx.coroutines.flow.asStateFlow
 
 class AddFoodDonationViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
@@ -40,29 +42,67 @@ class AddFoodDonationViewModel : ViewModel() {
     private val _isDetecting = MutableStateFlow(false)
     val isDetecting: StateFlow<Boolean> = _isDetecting
 
+    private val _alternativeFoodSuggestions = MutableStateFlow<List<String>>(emptyList())
+    val alternativeFoodSuggestions = _alternativeFoodSuggestions.asStateFlow()
+
+    private val _detectionConfidence = MutableStateFlow(0f)
+    val detectionConfidence = _detectionConfidence.asStateFlow()
+
+    private lateinit var foodDetectionService: AdvancedFoodDetectionService
+
     // Initialize Appwrite client
     fun initAppwrite(context: Context) {
         appwriteClient = Client(context)
             .setEndpoint("https://cloud.appwrite.io/v1")
             .setProject(appwriteProjectId)
         appwriteStorage = Storage(appwriteClient)
+
+        // Initialize the food detection service
+        foodDetectionService = AdvancedFoodDetectionService(context)
     }
+
+// Update the detectFoodFromImage method in AddFoodDonationViewModel
 
     fun detectFoodFromImage(context: Context, imageUri: Uri?) {
         if (imageUri == null) return
 
+        // Make sure the detection service is initialized
+        if (!::foodDetectionService.isInitialized) {
+            foodDetectionService = AdvancedFoodDetectionService(context)
+        }
+
         viewModelScope.launch {
             try {
                 _isDetecting.value = true
-                val detectedName = FoodDetectionHelper.detectFoodFromImage(context, imageUri)
-                _detectedFoodName.value = detectedName
+                _detectedFoodName.value = "" // Clear previous detection
+                _alternativeFoodSuggestions.value = emptyList()
+                _detectionConfidence.value = 0f
+
+                // Log detection start
+                Log.d("FoodDetection", "Starting advanced food detection for image: $imageUri")
+
+                // Use the advanced detection service
+                val result = foodDetectionService.detectFood(imageUri)
+
+                // Update UI with results
+                _detectedFoodName.value = result.foodName
+                _alternativeFoodSuggestions.value = result.alternatives
+                _detectionConfidence.value = result.confidence
+
+                Log.d("FoodDetection", "Detection complete. Result: ${result.foodName}, " +
+                        "Confidence: ${result.confidence}, " +
+                        "Alternatives: ${result.alternatives.joinToString()}")
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("FoodDetection", "Error detecting food", e)
+                _detectedFoodName.value = ""
+                _alternativeFoodSuggestions.value = emptyList()
+                _detectionConfidence.value = 0f
             } finally {
                 _isDetecting.value = false
             }
         }
     }
+
 
     fun addFoodDonation(
         context: Context,
