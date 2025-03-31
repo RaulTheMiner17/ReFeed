@@ -32,10 +32,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -246,50 +243,8 @@ fun AddFoodDonationScreen(
                     }
                 } // End Image Selection Box
 
-                Spacer(modifier = Modifier.height(20.dp)) // Increased spacing
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // --- Location Info ---
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = "Location",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Donation Location",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            if (currentLocation != null) {
-                                Text(
-                                    text = "Lat: ${String.format("%.6f", currentLocation?.latitude)}, " +
-                                            "Lng: ${String.format("%.6f", currentLocation?.longitude)}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            } else {
-                                Text(
-                                    text = "Location not available",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 // --- Food Name TextField ---
                 OutlinedTextField(
