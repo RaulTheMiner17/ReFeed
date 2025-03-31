@@ -338,7 +338,7 @@ fun OSMMapView(
     // Track the last clicked marker and timestamp
     val lastClickedMarker = remember { mutableStateOf<Marker?>(null) }
     val lastClickTime = remember { mutableStateOf(0L) }
-    val DOUBLE_CLICK_TIME_DELTA = 500L // milliseconds
+    val DOUBLE_CLICK_TIME_DELTA = 90000L // milliseconds
 
     // Configure map when it's first created
     DisposableEffect(Unit) {
