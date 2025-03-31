@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +31,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.firebase.firestore.FirebaseFirestore
+import com.ran.refeed.R
 import com.ran.refeed.ui.theme.ReFeedTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -38,6 +40,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+
 
 data class FoodDonation(
     val id: String = "",
@@ -77,7 +80,6 @@ fun CategoriesScreen(navController: NavController) {
                     .whereEqualTo("status", "available")
                     .get()
                     .await()
-
                 val donations = snapshot.documents.mapNotNull { doc ->
                     val id = doc.id
                     val name = doc.getString("name") ?: return@mapNotNull null
@@ -85,7 +87,6 @@ fun CategoriesScreen(navController: NavController) {
                     val donorName = doc.getString("donorName") ?: "Anonymous"
                     val latitude = doc.getDouble("latitude") ?: 0.0
                     val longitude = doc.getDouble("longitude") ?: 0.0
-
                     FoodDonation(
                         id = id,
                         name = name,
@@ -95,7 +96,6 @@ fun CategoriesScreen(navController: NavController) {
                         longitude = longitude
                     )
                 }
-
                 foodDonations = donations
                 isLoading = false
             } catch (e: Exception) {
@@ -186,7 +186,7 @@ fun CategoriesScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Donation Centers") },
+                title = { Text("Donations") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF4CAF50),
                     titleContentColor = Color.White,
@@ -198,7 +198,6 @@ fun CategoriesScreen(navController: NavController) {
         Box(modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)) {
-
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
@@ -211,8 +210,8 @@ fun CategoriesScreen(navController: NavController) {
                     currentLocation = currentLocation,
                     foodDonations = foodDonations,
                     onMarkerClick = { donation ->
-                        // Navigate to donation center detail
-                        navController.navigate("donationCenter/${donation.id}")
+                        // Navigate to food detail screen instead of donation center
+                        navController.navigate("foodDetail/${donation.id}")
                     }
                 )
             } else if (showRationale) {
@@ -336,12 +335,17 @@ fun OSMMapView(
 ) {
     val context = LocalContext.current
     val mapView = remember { MapView(context) }
+    // Track the last clicked marker and timestamp
+    val lastClickedMarker = remember { mutableStateOf<Marker?>(null) }
+    val lastClickTime = remember { mutableStateOf(0L) }
+    val DOUBLE_CLICK_TIME_DELTA = 500L // milliseconds
 
     // Configure map when it's first created
     DisposableEffect(Unit) {
         mapView.setTileSource(TileSourceFactory.MAPNIK)
         mapView.setMultiTouchControls(true)
-
+        // Disable the default behavior of closing other info windows
+        mapView.overlayManager.tilesOverlay.isOptionsMenuEnabled = false
         onDispose {
             mapView.onDetach()
         }
@@ -350,7 +354,6 @@ fun OSMMapView(
     // Update map when location or donations change
     LaunchedEffect(currentLocation, foodDonations) {
         mapView.overlays.clear()
-
         // Add current location marker if available
         currentLocation?.let { location ->
             val marker = Marker(mapView)
@@ -358,9 +361,11 @@ fun OSMMapView(
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             marker.title = "Your Location"
             marker.snippet = "You are here"
-            marker.icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
+            // Set a blue color for current location marker
+            val locationIcon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
+            locationIcon?.setTint(Color(0xFF2196F3).toArgb()) // Blue color
+            marker.icon = locationIcon
             mapView.overlays.add(marker)
-
             // Center map on current location
             val mapController = mapView.controller
             mapController.setZoom(15.0)
@@ -375,11 +380,27 @@ fun OSMMapView(
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             marker.title = donation.name
             marker.snippet = donation.description
-            marker.icon = ContextCompat.getDrawable(context, android.R.drawable.ic_dialog_info)
+            // Use food icon for donation markers
+            val foodIcon = ContextCompat.getDrawable(context, R.drawable.food_icon)
+            marker.icon = foodIcon
 
-            // Handle marker click
+            // Handle marker click with two-step interaction
             marker.setOnMarkerClickListener { clickedMarker, _ ->
-                onMarkerClick(donation)
+                val currentTime = System.currentTimeMillis()
+
+                if (lastClickedMarker.value == clickedMarker &&
+                    (currentTime - lastClickTime.value) < DOUBLE_CLICK_TIME_DELTA) {
+                    // Second click on the same marker - navigate to detail
+                    onMarkerClick(donation)
+                    // Reset after navigation
+                    lastClickedMarker.value = null
+                } else {
+                    // First click - just show info window
+                    clickedMarker.showInfoWindow()
+                    // Update last clicked marker and time
+                    lastClickedMarker.value = clickedMarker
+                    lastClickTime.value = currentTime
+                }
                 true // Consume the event
             }
 
@@ -401,9 +422,13 @@ fun OSMMapView(
     // Render the map view
     AndroidView(
         factory = { mapView },
-        modifier = modifier
+        modifier = modifier,
+        update = { view ->
+            view.invalidate()
+        }
     )
 }
+
 
 @Preview(showBackground = true)
 @Composable
