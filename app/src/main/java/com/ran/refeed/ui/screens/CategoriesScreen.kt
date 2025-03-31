@@ -29,40 +29,80 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.firebase.firestore.FirebaseFirestore
 import com.ran.refeed.ui.theme.ReFeedTheme
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 
-
-data class Restaurant(val name: String, val latLng: GeoPoint, val hasExcessFood: Boolean) // Use GeoPoint
+data class FoodDonation(
+    val id: String = "",
+    val name: String = "",
+    val description: String = "",
+    val donorName: String = "",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val hasExcessFood: Boolean = true // Always true for food donations
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(navController: NavController) {
     val context = LocalContext.current
     var locationPermissionGranted by remember { mutableStateOf(false) }
-    var currentLocation by remember { mutableStateOf<GeoPoint?>(null) } // Use GeoPoint
+    var currentLocation by remember { mutableStateOf<GeoPoint?>(null) }
     var showRationale by remember { mutableStateOf(false) }
     var permanentlyDenied by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // State for food donations
+    var foodDonations by remember { mutableStateOf<List<FoodDonation>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
     // Initialize osmdroid configuration (do this *once*, ideally in your Application class)
     Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid", 0))
-
     val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
-    val restaurants = remember {
-        listOf(
-            Restaurant("Restaurant A", GeoPoint(37.7749, -122.4194), true), // San Francisco
-            Restaurant("Restaurant B", GeoPoint(37.7850, -122.4060), false),
-            Restaurant("Restaurant C", GeoPoint(37.7650, -122.4290), true),
-            Restaurant("Restaurant D", GeoPoint(40.7128, -74.0060), true),  //New York
-            Restaurant("Restaurant E", GeoPoint(40.7228, -74.0160), false),
-            Restaurant("Restaurant F", GeoPoint(40.7028, -73.9960), true),
-        )
+    // Fetch food donations from Firestore
+    LaunchedEffect(Unit) {
+        coroutineScope.launch {
+            try {
+                val firestore = FirebaseFirestore.getInstance()
+                val snapshot = firestore.collection("foodItems")
+                    .whereEqualTo("status", "available")
+                    .get()
+                    .await()
+
+                val donations = snapshot.documents.mapNotNull { doc ->
+                    val id = doc.id
+                    val name = doc.getString("name") ?: return@mapNotNull null
+                    val description = doc.getString("description") ?: ""
+                    val donorName = doc.getString("donorName") ?: "Anonymous"
+                    val latitude = doc.getDouble("latitude") ?: 0.0
+                    val longitude = doc.getDouble("longitude") ?: 0.0
+
+                    FoodDonation(
+                        id = id,
+                        name = name,
+                        description = description,
+                        donorName = donorName,
+                        latitude = latitude,
+                        longitude = longitude
+                    )
+                }
+
+                foodDonations = donations
+                isLoading = false
+            } catch (e: Exception) {
+                // Handle error
+                isLoading = false
+            }
+        }
     }
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
@@ -115,7 +155,6 @@ fun CategoriesScreen(navController: NavController) {
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
@@ -159,18 +198,23 @@ fun CategoriesScreen(navController: NavController) {
         Box(modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)) {
-            if (locationPermissionGranted) {
+
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = Color(0xFF4CAF50)
+                )
+            } else if (locationPermissionGranted) {
                 // OSM Map
                 OSMMapView(
                     modifier = Modifier.fillMaxSize(),
                     currentLocation = currentLocation,
-                    restaurants = restaurants,
-                    onMarkerClick = { restaurant ->
+                    foodDonations = foodDonations,
+                    onMarkerClick = { donation ->
                         // Navigate to donation center detail
-                        navController.navigate("donationCenter/${restaurant.name}")
+                        navController.navigate("donationCenter/${donation.id}")
                     }
                 )
-
             } else if (showRationale) {
                 // Rationale
                 AlertDialog(
@@ -212,108 +256,153 @@ fun CategoriesScreen(navController: NavController) {
                         }
                     },
                     dismissButton = {
-                        Button(onClick = {permanentlyDenied = false}){
+                        Button(onClick = { permanentlyDenied = false }) {
                             Text("Cancel")
                         }
                     }
                 )
             } else {
+                // No permission, no rationale, not permanently denied - show basic UI
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        "Location permission required",
-                        style = MaterialTheme.typography.titleMedium,
+                        "Location Permission Required",
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "We need location permission to show donation centers near you.",
+                        style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = {
                             requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
-                        )
+                        }
                     ) {
                         Text("Grant Permission")
                     }
                 }
             }
+
+            // FAB for adding new food donation
+            FloatingActionButton(
+                onClick = { navController.navigate("addFoodDonation") },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                containerColor = Color(0xFF4CAF50)
+            ) {
+                Text(
+                    "+",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White
+                )
+            }
         }
     }
-}
-
-
-@Composable
-fun OSMMapView(
-    modifier: Modifier = Modifier,
-    currentLocation: GeoPoint?,
-    restaurants: List<Restaurant>,
-    onMarkerClick: (Restaurant) -> Unit
-) {
-    val context = LocalContext.current
-    val mapView = remember { MapView(context) }  // Use remember for the MapView
-
-    AndroidView(
-        factory = { mapView },
-        modifier = modifier,
-        update = { mapView ->
-            mapView.setTileSource(TileSourceFactory.MAPNIK) // Or other tile sources
-            mapView.controller.setZoom(15.0)  // Initial zoom level
-            mapView.setMultiTouchControls(true)
-
-            // Clear existing overlays to prevent duplicates
-            mapView.overlays.clear()
-
-            currentLocation?.let {
-                mapView.controller.animateTo(it) // Center on current location
-                val locationMarker = Marker(mapView)
-                locationMarker.position = it
-                locationMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                locationMarker.title = "Your Location"
-                mapView.overlays.add(locationMarker)
-            }
-
-            // Add restaurant markers
-            for (restaurant in restaurants) {
-                if (restaurant.hasExcessFood) {
-                    val marker = Marker(mapView)
-                    marker.position = restaurant.latLng
-                    marker.title = restaurant.name
-                    marker.snippet = "Has excess food" // Optional snippet
-                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) // Center the marker
-
-                    // Set marker click listener
-                    marker.setOnMarkerClickListener { marker, mapView ->
-                        onMarkerClick(restaurant)
-                        true // Return true to consume the event
-                    }
-
-                    mapView.overlays.add(marker)
-                }
-            }
-
-            mapView.onResume()
-        }
-    )
 }
 
 @SuppressLint("MissingPermission")
 private fun getLastLocation(
     fusedLocationClient: FusedLocationProviderClient,
-    callback: (GeoPoint) -> Unit // Changed to GeoPoint
+    onLocationReceived: (GeoPoint) -> Unit
 ) {
-    fusedLocationClient.lastLocation
-        .addOnSuccessListener { location ->
-            if (location != null) {
-                callback(GeoPoint(location.latitude, location.longitude)) // Convert to GeoPoint
+    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+        if (location != null) {
+            onLocationReceived(GeoPoint(location.latitude, location.longitude))
+        } else {
+            // Default location if no last location available
+            onLocationReceived(GeoPoint(28.6139, 77.2090)) // Default to Delhi, India
+        }
+    }.addOnFailureListener {
+        // Default location on failure
+        onLocationReceived(GeoPoint(28.6139, 77.2090)) // Default to Delhi, India
+    }
+}
+
+@Composable
+fun OSMMapView(
+    modifier: Modifier = Modifier,
+    currentLocation: GeoPoint?,
+    foodDonations: List<FoodDonation>,
+    onMarkerClick: (FoodDonation) -> Unit
+) {
+    val context = LocalContext.current
+    val mapView = remember { MapView(context) }
+
+    // Configure map when it's first created
+    DisposableEffect(Unit) {
+        mapView.setTileSource(TileSourceFactory.MAPNIK)
+        mapView.setMultiTouchControls(true)
+
+        onDispose {
+            mapView.onDetach()
+        }
+    }
+
+    // Update map when location or donations change
+    LaunchedEffect(currentLocation, foodDonations) {
+        mapView.overlays.clear()
+
+        // Add current location marker if available
+        currentLocation?.let { location ->
+            val marker = Marker(mapView)
+            marker.position = location
+            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            marker.title = "Your Location"
+            marker.snippet = "You are here"
+            marker.icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
+            mapView.overlays.add(marker)
+
+            // Center map on current location
+            val mapController = mapView.controller
+            mapController.setZoom(15.0)
+            mapController.setCenter(location)
+        }
+
+        // Add markers for food donations
+        foodDonations.forEach { donation ->
+            val donationLocation = GeoPoint(donation.latitude, donation.longitude)
+            val marker = Marker(mapView)
+            marker.position = donationLocation
+            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            marker.title = donation.name
+            marker.snippet = donation.description
+            marker.icon = ContextCompat.getDrawable(context, android.R.drawable.ic_dialog_info)
+
+            // Handle marker click
+            marker.setOnMarkerClickListener { clickedMarker, _ ->
+                onMarkerClick(donation)
+                true // Consume the event
             }
+
+            mapView.overlays.add(marker)
         }
-        .addOnFailureListener {
-            // Handle failure
+
+        // If no current location but have donations, center on first donation
+        if (currentLocation == null && foodDonations.isNotEmpty()) {
+            val firstDonation = foodDonations.first()
+            val donationLocation = GeoPoint(firstDonation.latitude, firstDonation.longitude)
+            val mapController = mapView.controller
+            mapController.setZoom(15.0)
+            mapController.setCenter(donationLocation)
         }
+
+        mapView.invalidate() // Refresh the map
+    }
+
+    // Render the map view
+    AndroidView(
+        factory = { mapView },
+        modifier = modifier
+    )
 }
 
 @Preview(showBackground = true)

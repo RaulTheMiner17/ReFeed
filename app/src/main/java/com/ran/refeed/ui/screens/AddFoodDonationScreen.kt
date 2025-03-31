@@ -1,7 +1,7 @@
 package com.ran.refeed.ui.screens
 
 import android.net.Uri
-import android.util.Log // Added for logging initialize call
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -10,7 +10,18 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,11 +29,35 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt // Changed Icon for clarity
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,10 +70,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.ran.refeed.viewmodels.AddFoodDonationViewModel // Ensure this import is correct
+import com.ran.refeed.viewmodels.AddFoodDonationViewModel
 import java.text.SimpleDateFormat
-import java.util.*
-import java.util.concurrent.TimeUnit // For default expiry calculation
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +91,7 @@ fun AddFoodDonationScreen(
     val detectedFoodName by viewModel.detectedFoodName.collectAsState()
     val alternatives by viewModel.alternativeFoodSuggestions.collectAsState() // Collect alternatives
     val confidence by viewModel.detectionConfidence.collectAsState() // Collect confidence
+    val currentLocation by viewModel.currentLocation.collectAsState() // Collect location
 
     // State for UI elements
     var name by remember { mutableStateOf("") }
@@ -125,7 +164,6 @@ fun AddFoodDonationScreen(
                     .verticalScroll(rememberScrollState()), // Make content scrollable
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
                 // --- Image Selection Box ---
                 Box(
                     modifier = Modifier
@@ -186,7 +224,6 @@ fun AddFoodDonationScreen(
                             )
                         }
                     }
-
                     // --- Detecting Indicator Overlay ---
                     this@Column.AnimatedVisibility(
                         visible = isDetecting,
@@ -210,6 +247,49 @@ fun AddFoodDonationScreen(
                 } // End Image Selection Box
 
                 Spacer(modifier = Modifier.height(20.dp)) // Increased spacing
+
+                // --- Location Info ---
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = "Location",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Donation Location",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            if (currentLocation != null) {
+                                Text(
+                                    text = "Lat: ${String.format("%.6f", currentLocation?.latitude)}, " +
+                                            "Lng: ${String.format("%.6f", currentLocation?.longitude)}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            } else {
+                                Text(
+                                    text = "Location not available",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // --- Food Name TextField ---
                 OutlinedTextField(
@@ -252,9 +332,7 @@ fun AddFoodDonationScreen(
                         }
                     }
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
-
                 // --- Description TextField ---
                 OutlinedTextField(
                     value = description,
@@ -265,9 +343,7 @@ fun AddFoodDonationScreen(
                         .heightIn(min = 100.dp), // Minimum height
                     maxLines = 5
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
-
                 // --- Quantity Row ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -293,14 +369,12 @@ fun AddFoodDonationScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
-
                 // --- Price TextField ---
                 OutlinedTextField(
                     value = price,
                     onValueChange = { input ->
-                        // Allow empty, or numbers with optional single decimal point (up to 2 places)
+                        // Allow empty input or numbers with an optional decimal (up to 2 places)
                         if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d{0,2}\$"))) {
                             price = input
                         }
@@ -310,9 +384,7 @@ fun AddFoodDonationScreen(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
-
                 // --- Expiry Date TextField ---
                 OutlinedTextField(
                     value = dateFormatter.format(Date(expiryDate)), // Format the selected date
@@ -326,9 +398,7 @@ fun AddFoodDonationScreen(
                         }
                     }
                 )
-
                 Spacer(modifier = Modifier.height(32.dp))
-
                 // --- Submit Button ---
                 val canSubmit = remember(name, description, quantity, quantityNumber, price, imageUri, isLoading, isDetecting) {
                     !isLoading && !isDetecting &&
@@ -373,7 +443,6 @@ fun AddFoodDonationScreen(
                 }
                 Spacer(modifier = Modifier.height(16.dp)) // Add some padding at the bottom
             } // End Column
-
             // --- Loading overlay for submission ---
             if (isLoading) {
                 Box(
@@ -404,7 +473,6 @@ fun AddFoodDonationScreen(
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
         }
-
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = expiryDate.coerceAtLeast(today), // Ensure initial is not past
             selectableDates = object : SelectableDates {
@@ -414,7 +482,6 @@ fun AddFoodDonationScreen(
                 }
             }
         )
-
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -440,3 +507,4 @@ fun AddFoodDonationScreen(
         }
     }
 } // End Composable Function
+

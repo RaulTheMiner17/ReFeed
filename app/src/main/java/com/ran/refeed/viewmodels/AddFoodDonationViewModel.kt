@@ -23,6 +23,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import java.lang.Exception // Ensure Exception is imported
+import android.location.Location
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.tasks.Tasks
+import org.osmdroid.util.GeoPoint
 
 class AddFoodDonationViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
@@ -34,27 +39,26 @@ class AddFoodDonationViewModel : ViewModel() {
     private val appwriteBucketId = "foodImages" // Replace with your actual Bucket ID
     private lateinit var appwriteClient: Client
     private lateinit var appwriteStorage: Storage
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow() // Use asStateFlow for external exposure
-
     private val _isSuccess = MutableStateFlow(false)
     val isSuccess: StateFlow<Boolean> = _isSuccess.asStateFlow()
-
     private val _detectedFoodName = MutableStateFlow("")
     val detectedFoodName: StateFlow<String> = _detectedFoodName.asStateFlow()
-
     private val _isDetecting = MutableStateFlow(false)
     val isDetecting: StateFlow<Boolean> = _isDetecting.asStateFlow()
-
     private val _alternativeFoodSuggestions = MutableStateFlow<List<String>>(emptyList())
     val alternativeFoodSuggestions: StateFlow<List<String>> = _alternativeFoodSuggestions.asStateFlow()
-
     private val _detectionConfidence = MutableStateFlow(0f)
     val detectionConfidence: StateFlow<Float> = _detectionConfidence.asStateFlow()
 
+    // Location state
+    private val _currentLocation = MutableStateFlow<GeoPoint?>(null)
+    val currentLocation: StateFlow<GeoPoint?> = _currentLocation.asStateFlow()
+
     // Make lateinit and ensure initialization
     private lateinit var foodDetectionService: AdvancedFoodDetectionService
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     // Flag to track initialization
     private var isInitialized = false
@@ -72,6 +76,13 @@ class AddFoodDonationViewModel : ViewModel() {
 
             // Initialize the food detection service
             foodDetectionService = AdvancedFoodDetectionService(context.applicationContext) // Use application context
+
+            // Initialize location client
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+            // Get current location if permission is granted
+            getCurrentLocation()
+
             isInitialized = true
             Log.d(TAG, "ViewModel dependencies initialized successfully.")
         } catch (e: Exception) {
@@ -79,6 +90,25 @@ class AddFoodDonationViewModel : ViewModel() {
             // Handle initialization error (e.g., show a message to the user)
         }
     }
+
+    private fun getCurrentLocation() {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    // This will throw SecurityException if permission is not granted
+                    val locationResult = Tasks.await(fusedLocationClient.lastLocation)
+                    locationResult?.let {
+                        _currentLocation.value = GeoPoint(it.latitude, it.longitude)
+                        Log.d(TAG, "Current location obtained: ${it.latitude}, ${it.longitude}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting current location", e)
+                // Location permission might not be granted or location is unavailable
+            }
+        }
+    }
+
     fun resetSuccessState() {
         _isSuccess.value = false
         Log.d(TAG, "Success state reset.") // Optional logging
@@ -95,28 +125,22 @@ class AddFoodDonationViewModel : ViewModel() {
             Log.w(TAG, "detectFoodFromImage called with null URI.")
             return
         }
-
         viewModelScope.launch {
             try {
                 _isDetecting.value = true
                 _detectedFoodName.value = "" // Clear previous detection
                 _alternativeFoodSuggestions.value = emptyList()
                 _detectionConfidence.value = 0f
-
                 Log.i(TAG, "Starting food detection for image: $imageUri")
-
                 // Use the advanced detection service (now guaranteed to be initialized)
                 val result = foodDetectionService.detectFood(imageUri)
-
                 // Update UI state flows with results
                 _detectedFoodName.value = result.foodName
                 _alternativeFoodSuggestions.value = result.alternatives
                 _detectionConfidence.value = result.confidence
-
                 Log.i(TAG, "Detection complete. Result: Name='${result.foodName}', " +
                         "Confidence=${String.format("%.2f", result.confidence)}, " +
                         "Alternatives=[${result.alternatives.joinToString()}]")
-
             } catch (e: Exception) {
                 Log.e(TAG, "Error detecting food", e)
                 _detectedFoodName.value = "" // Reset on error
@@ -128,7 +152,6 @@ class AddFoodDonationViewModel : ViewModel() {
             }
         }
     }
-
 
     // Add the food donation details to Firestore and upload image
     fun addFoodDonation(
@@ -147,16 +170,13 @@ class AddFoodDonationViewModel : ViewModel() {
             // Consider disabling the submit button until initialized
             return
         }
-
         viewModelScope.launch {
             _isLoading.value = true
             _isSuccess.value = false // Reset success state
             var imageUrl = "" // Initialize image URL
-
             try {
                 val currentUser = auth.currentUser ?: throw IllegalStateException("User not authenticated")
                 val userDocRef = firestore.collection("users").document(currentUser.uid)
-
                 // Upload image first (if available) - runs in IO context
                 if (imageUri != null) {
                     imageUrl = uploadImageToAppwrite(context, imageUri) // Pass context if needed by upload
@@ -165,7 +185,6 @@ class AddFoodDonationViewModel : ViewModel() {
                         // Decide if upload failure is critical. Here we proceed without URL.
                     }
                 }
-
                 // Fetch user data concurrently or proceed if not strictly needed before write
                 // Using await here makes it sequential after image upload
                 val userDoc = userDocRef.get().await()
@@ -177,6 +196,8 @@ class AddFoodDonationViewModel : ViewModel() {
                     currentUser.displayName ?: "Anonymous Donor" // Fallback donor name
                 }
 
+                // Get current location
+                val location = _currentLocation.value
 
                 // Prepare food item data
                 val foodItem = hashMapOf(
@@ -190,14 +211,15 @@ class AddFoodDonationViewModel : ViewModel() {
                     "status" to "available", // Default status
                     "imageUrl" to imageUrl, // Use uploaded URL or empty string
                     "price" to price,
-                    "timestamp" to System.currentTimeMillis() // Server timestamp is often better: FieldValue.serverTimestamp()
+                    "timestamp" to System.currentTimeMillis(), // Server timestamp is often better: FieldValue.serverTimestamp()
+                    "latitude" to (location?.latitude ?: 0.0), // Add location data
+                    "longitude" to (location?.longitude ?: 0.0) // Add location data
                 )
 
                 // Add food item to Firestore
                 Log.d(TAG, "Adding food item to Firestore...")
                 val addedDocRef = firestore.collection("foodItems").add(foodItem).await()
                 Log.i(TAG, "Food item added successfully with ID: ${addedDocRef.id}")
-
 
                 // Update user's donation count (handle potential non-existence)
                 try {
@@ -212,10 +234,7 @@ class AddFoodDonationViewModel : ViewModel() {
                     Log.e(TAG, "Failed to update user donationsCount transactionally", txError)
                     // Decide how to handle this - maybe log and continue? The food item is already added.
                 }
-
-
                 _isSuccess.value = true // Signal success to UI
-
             } catch (e: Exception) {
                 Log.e(TAG, "Error adding food donation", e)
                 _isSuccess.value = false // Ensure success is false on error
@@ -240,15 +259,11 @@ class AddFoodDonationViewModel : ViewModel() {
                         inputStream.copyTo(outputStream)
                     }
                 } ?: throw Exception("Failed to open input stream for URI")
-
                 Log.d(TAG, "Temporary file created: ${tempFile?.absolutePath}")
-
                 // Generate a unique file ID
                 val fileId = ID.unique()
-
                 // Create an InputFile from the temp file
                 val inputFile = InputFile.fromFile(tempFile!!) // Safe call as exception thrown if null
-
                 // Upload the file
                 Log.d(TAG, "Uploading file to Appwrite bucket '$appwriteBucketId' with fileId '$fileId'")
                 val result = appwriteStorage.createFile(
@@ -257,13 +272,10 @@ class AddFoodDonationViewModel : ViewModel() {
                     file = inputFile
                 )
                 Log.i(TAG, "Appwrite file upload successful. File ID: ${result.id}")
-
-
                 // Construct the URL for viewing the file
                 val fileUrl = "https://cloud.appwrite.io/v1/storage/buckets/$appwriteBucketId/files/$fileId/view?project=$appwriteProjectId"
                 Log.d(TAG, "Constructed file URL: $fileUrl")
                 fileUrl // Return the URL
-
             } catch (e: Exception) {
                 Log.e(TAG, "Error uploading image to Appwrite", e)
                 "" // Return empty string on failure

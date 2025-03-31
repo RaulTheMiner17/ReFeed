@@ -1,9 +1,6 @@
 package com.ran.refeed.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,9 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -23,20 +18,31 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ran.refeed.ui.components.BottomNavigationBar
-import com.ran.refeed.ui.screens.*
+import com.ran.refeed.ui.screens.AddFoodDonationScreen
+import com.ran.refeed.ui.screens.CartScreen
+import com.ran.refeed.ui.screens.CategoriesScreen
+import com.ran.refeed.ui.screens.CheckoutScreen
+import com.ran.refeed.ui.screens.DonationCenterDetailScreen
+import com.ran.refeed.ui.screens.FoodDetailScreen
+import com.ran.refeed.ui.screens.HomeScreen
+import com.ran.refeed.ui.screens.LoginScreen
+import com.ran.refeed.ui.screens.OrderConfirmationScreen
+import com.ran.refeed.ui.screens.ProfileScreen
+import com.ran.refeed.ui.screens.RegisterScreen
+import com.ran.refeed.ui.screens.SplashScreen
+import com.ran.refeed.viewmodels.AddFoodDonationViewModel
 import com.ran.refeed.viewmodels.AuthViewModel
 import com.ran.refeed.viewmodels.CartViewModel
-import kotlinx.coroutines.delay
 
 @Composable
 fun Navigation() {
     val navController = rememberNavController()
     val cartViewModel: CartViewModel = viewModel()
     val authViewModel: AuthViewModel = viewModel()
+    val addFoodDonationViewModel: AddFoodDonationViewModel = viewModel()
 
     // State to track if initial auth check is complete
     var isAuthCheckComplete by remember { mutableStateOf(false) }
-    var startDestination by remember { mutableStateOf("splash") }
 
     // Get current route to determine when to show bottom nav
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -79,9 +85,9 @@ fun Navigation() {
                 )
             }
 
+            // Authentication screens
             composable("login") {
                 val currentUser by authViewModel.currentUser.collectAsState()
-
                 // If user becomes authenticated while on login screen, navigate to home
                 LaunchedEffect(currentUser) {
                     if (currentUser != null) {
@@ -90,7 +96,6 @@ fun Navigation() {
                         }
                     }
                 }
-
                 LoginScreen(
                     onNavigateToRegister = { navController.navigate("register") },
                     onLoginSuccess = {
@@ -114,9 +119,9 @@ fun Navigation() {
                 )
             }
 
+            // Main app screens
             composable("home") {
                 val currentUser by authViewModel.currentUser.collectAsState()
-
                 // Ensure user is authenticated to access home
                 LaunchedEffect(currentUser) {
                     if (currentUser == null) {
@@ -125,16 +130,11 @@ fun Navigation() {
                         }
                     }
                 }
-
                 HomeScreen(navController = navController, cartViewModel = cartViewModel)
             }
 
-            // Rest of your composables with authentication checks...
-
-
             composable("profile") {
                 val currentUser by authViewModel.currentUser.collectAsState()
-
                 LaunchedEffect(currentUser) {
                     if (currentUser == null) {
                         navController.navigate("login") {
@@ -142,17 +142,14 @@ fun Navigation() {
                         }
                     }
                 }
-
                 ProfileScreen(
                     navController = navController,
-                    authViewModel = authViewModel  // Pass the AuthViewModel
+                    authViewModel = authViewModel
                 )
             }
 
-
             composable("cart") {
                 val currentUser by authViewModel.currentUser.collectAsState()
-
                 LaunchedEffect(currentUser) {
                     if (currentUser == null) {
                         navController.navigate("login") {
@@ -160,13 +157,11 @@ fun Navigation() {
                         }
                     }
                 }
-
                 CartScreen(navController = navController, cartViewModel = cartViewModel)
             }
 
             composable("donations") {
                 val currentUser by authViewModel.currentUser.collectAsState()
-
                 LaunchedEffect(currentUser) {
                     if (currentUser == null) {
                         navController.navigate("login") {
@@ -174,13 +169,11 @@ fun Navigation() {
                         }
                     }
                 }
-
                 CategoriesScreen(navController = navController)
             }
 
             composable("checkout") {
                 val currentUser by authViewModel.currentUser.collectAsState()
-
                 LaunchedEffect(currentUser) {
                     if (currentUser == null) {
                         navController.navigate("login") {
@@ -188,15 +181,23 @@ fun Navigation() {
                         }
                     }
                 }
-
                 CheckoutScreen(navController = navController, cartViewModel = cartViewModel)
             }
 
+            // Food detail screen
             composable(
                 route = "foodDetail/{foodId}",
                 arguments = listOf(navArgument("foodId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val foodId = backStackEntry.arguments?.getString("foodId") ?: ""
+                val currentUser by authViewModel.currentUser.collectAsState()
+                LaunchedEffect(currentUser) {
+                    if (currentUser == null) {
+                        navController.navigate("login") {
+                            popUpTo("foodDetail/{foodId}") { inclusive = true }
+                        }
+                    }
+                }
                 FoodDetailScreen(
                     navController = navController,
                     foodId = foodId,
@@ -204,9 +205,9 @@ fun Navigation() {
                 )
             }
 
+            // Food donation screens
             composable("addFoodDonation") {
                 val currentUser by authViewModel.currentUser.collectAsState()
-
                 LaunchedEffect(currentUser) {
                     if (currentUser == null) {
                         navController.navigate("login") {
@@ -214,24 +215,33 @@ fun Navigation() {
                         }
                     }
                 }
-
-                AddFoodDonationScreen(navController = navController)
+                AddFoodDonationScreen(navController = navController, viewModel = addFoodDonationViewModel)
             }
 
             composable(
-                route = "donationCenter/{centerId}",
-                arguments = listOf(navArgument("centerId") { type = NavType.StringType })
+                route = "donationCenter/{donationId}",
+                arguments = listOf(navArgument("donationId") { type = NavType.StringType })
             ) { backStackEntry ->
-                val centerId = backStackEntry.arguments?.getString("centerId") ?: ""
+                val donationId = backStackEntry.arguments?.getString("donationId") ?: ""
+                val currentUser by authViewModel.currentUser.collectAsState()
+                LaunchedEffect(currentUser) {
+                    if (currentUser == null) {
+                        navController.navigate("login") {
+                            popUpTo("donationCenter/{donationId}") { inclusive = true }
+                        }
+                    }
+                }
                 DonationCenterDetailScreen(
                     navController = navController,
-                    centerId = centerId
+                    donationId = donationId
                 )
             }
 
+
+
+            // Order confirmation screen
             composable("orderConfirmation") {
                 val currentUser by authViewModel.currentUser.collectAsState()
-
                 LaunchedEffect(currentUser) {
                     if (currentUser == null) {
                         navController.navigate("login") {
@@ -239,9 +249,19 @@ fun Navigation() {
                         }
                     }
                 }
-
                 OrderConfirmationScreen(navController = navController)
+            }
+
+            // My donations screen
+
+
+            // My requests screen
+
+
+
+
+
             }
         }
     }
-}
+
