@@ -219,21 +219,13 @@ fun Navigation() {
             }
 
             composable(
-                route = "donationCenter/{donationId}",
-                arguments = listOf(navArgument("donationId") { type = NavType.StringType })
+                route = "donationCenter/{centerId}",
+                arguments = listOf(navArgument("centerId") { type = NavType.StringType })
             ) { backStackEntry ->
-                val donationId = backStackEntry.arguments?.getString("donationId") ?: ""
-                val currentUser by authViewModel.currentUser.collectAsState()
-                LaunchedEffect(currentUser) {
-                    if (currentUser == null) {
-                        navController.navigate("login") {
-                            popUpTo("donationCenter/{donationId}") { inclusive = true }
-                        }
-                    }
-                }
+                val centerId = backStackEntry.arguments?.getString("centerId") ?: ""
                 DonationCenterDetailScreen(
                     navController = navController,
-                    donationId = donationId
+                    centerId = centerId
                 )
             }
 
@@ -251,16 +243,6 @@ fun Navigation() {
                 }
                 OrderConfirmationScreen(navController = navController)
             }
-
-            // My donations screen
-
-
-            // My requests screen
-
-
-
-
-
             }
         }
     }

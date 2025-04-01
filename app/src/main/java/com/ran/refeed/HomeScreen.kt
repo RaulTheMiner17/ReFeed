@@ -297,6 +297,7 @@ fun ShelterCard(shelter: Shelter, onClick: () -> Unit) {
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .background(Color.White) //BG Block
                         .height(120.dp)
                 )
             } else {
@@ -320,7 +321,9 @@ fun ShelterCard(shelter: Shelter, onClick: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Color.White) //BG Block
                     .padding(16.dp)
+
             ) {
                 Text(
                     text = shelter.name,

@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.ran.refeed"
-    compileSdk = 35 // Stick to 34 for now.
+    compileSdk = 35// Stick to 34 for now.
 
     defaultConfig {
         applicationId = "com.ran.refeed"
